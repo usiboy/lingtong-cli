@@ -28,6 +28,127 @@
 | 📐 模型 | 查询接口模型、领域模型、动态模型 Schema |
 | 🔧 通用 API | 调用任意绫通平台 API，覆盖所有端点 |
 
+## 命令参考表
+
+### 认证与配置 (Auth & Config)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `config init` | 初始化 CLI 配置 | 无 | `lingtong-cli config init --host https://app.ltpass.com` |
+| `auth login` | 登录认证 | --token 或 --from-env | `lingtong-cli auth login --token apk-xxx` |
+| `auth logout` | 登出并清除凭证 | 无 | `lingtong-cli auth logout` |
+| `auth status` | 查看登录状态 | 无 | `lingtong-cli auth status` |
+
+### 连接器 (Connector)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `connector info` | 查询连接器详情 | --connector | `lingtong-cli connector info --connector kmerp` |
+| `connector list` | 列出所有连接器账户 | 无 | `lingtong-cli connector list --app-id 165` |
+| `connector category list` | 查询连接器类目 | --connector | `lingtong-cli connector category list --connector kmerp` |
+| `connector account list` | 列出连接器账户 | --connector | `lingtong-cli connector account list --connector kmerp --env prod` |
+| `connector account verify` | 验证账户连接 | --connector, --account-id | `lingtong-cli connector account verify --connector kmerp --account-id 123` |
+| `connector account create` | 创建连接器账户 | --connector, --name, --data | `lingtong-cli connector account create --connector kmerp --name "测试" --data '{"appKey":"x"}'` |
+| `connector check-auth` | 检查授权状态 | --workflow-id/--scene-id/--connector | `lingtong-cli connector check-auth --workflow-id 947` |
+
+### 场景 (Scene)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `scene list` | 列出所有场景 | 无 | `lingtong-cli scene list --page 1 --page-size 20` |
+| `scene create` | 创建场景 | --name | `lingtong-cli scene create --name "Order Sync" --description "同步订单"` |
+| `scene info` | 查询场景详情 | --scene-id | `lingtong-cli scene info --scene-id 123` |
+
+### 工作流 (Workflow)
+
+#### 基础命令
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow list` | 列出工作流 | --app-id | `lingtong-cli workflow list --app-id 165` |
+| `workflow info` | 查询工作流详情 | --workflow-id | `lingtong-cli workflow info --workflow-id 123` |
+| `workflow create` | 创建工作流 | --name | `lingtong-cli workflow create --name "My WF" --dsl-file wf.json` |
+| `workflow update` | 更新工作流 | --workflow-id | `lingtong-cli workflow update --workflow-id 100 --dsl-file wf.json` |
+| `workflow delete` | 删除工作流 | --workflow-id | `lingtong-cli workflow delete --workflow-id 100 --confirm` |
+
+#### 执行与日志
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow execute` | 执行工作流 | --workflow-id | `lingtong-cli workflow execute --workflow-id 123 --wait` |
+| `workflow logs` | 查询执行日志 | --receipt-id | `lingtong-cli workflow logs --receipt-id abc123` |
+
+#### 发布与版本
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow publish` | 发布工作流 | --workflow-id | `lingtong-cli workflow publish --workflow-id 100 --version "v1.0.0"` |
+| `workflow versions` | 列出版本 | --workflow-id | `lingtong-cli workflow versions --workflow-id 100` |
+| `workflow version rollback` | 版本回滚 | --workflow-id, --version | `lingtong-cli workflow version rollback --workflow-id 100 --version "v1.0.0" --dry-run` |
+
+#### API 访问
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow api-enable` | 启用 API 访问 | --workflow-id | `lingtong-cli workflow api-enable --workflow-id 100` |
+| `workflow api-disable` | 禁用 API 访问 | --workflow-id | `lingtong-cli workflow api-disable --workflow-id 100` |
+| `workflow api-test` | 测试开放 API | --app-tag, --params | `lingtong-cli workflow api-test --app-tag abc123 --params '{"k":"v"}'` |
+
+#### 模板管理
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow template list` | 列出模板 | 无 | `lingtong-cli workflow template list` |
+| `workflow template show` | 查看模板详情 | --name | `lingtong-cli workflow template show --name order_sync` |
+| `workflow template use` | 使用模板 | --name, --output | `lingtong-cli workflow template use --name approval --output wf.json` |
+
+#### 验证与测试
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow validate` | 验证 DSL | --workflow-id 或 --dsl-file | `lingtong-cli workflow validate --dsl-file wf.json --strict` |
+| `workflow test run` | 运行测试 | --workflow-id | `lingtong-cli workflow test run --workflow-id 100 --verbose` |
+
+#### 文档与依赖
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `workflow doc generate` | 生成文档 | --workflow-id 或 --dsl-file | `lingtong-cli workflow doc generate --workflow-id 100 --output-file docs.md` |
+| `workflow dependency list` | 分析依赖 | --workflow-id 或 --dsl-file | `lingtong-cli workflow dependency list --dsl-file wf.json` |
+
+### 表格 (Table)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `table list` | 列出所有表格 | 无 | `lingtong-cli table list` |
+| `table data query` | 查询表格数据 | --table-id | `lingtong-cli table data query --table-id 456 --filter '{"status":"active"}'` |
+| `table data create` | 创建表格记录 | --table-id, --data | `lingtong-cli table data create --table-id 456 --data '{"name":"test"}'` |
+
+### 模型 (Model)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `model interface list` | 查询接口模型 | --connector, --filter-model-type | `lingtong-cli model interface list --connector kmerp --filter-model-type query` |
+| `model domain get` | 获取领域模型 | --connector, --business | `lingtong-cli model domain get --connector kmerp --business order` |
+| `model dynamic view` | 查询动态视图 | --connector, --auth-account-id | `lingtong-cli model dynamic view --connector kmerp --auth-account-id 296` |
+
+### 通用 API
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `api <method> <path>` | 调用任意 API | method, path | `lingtong-cli api GET /gw/ai/connector/info?connector=kmerp` |
+
+### 内置工作流模板
+
+| 模板名称 | 节点数 | 描述 |
+|---------|-------|------|
+| `simple` | 2 | 简单的开始到结束工作流 |
+| `connector` | 3 | 包含连接器节点的工作流 |
+| `order_sync` | 5 | 从 ERP 系统同步订单 |
+| `approval` | 4 | 带条件分支的审批流程 |
+| `data_pipeline` | 5 | 带数据转换的管道 |
+| `api_wrapper` | 4 | 将连接器封装为 API |
+
 ## 安装与快速开始
 
 ### 环境要求
@@ -221,27 +342,182 @@ lingtong-cli api POST /gw/ai/workflow/debug/create --data '{"workflowId": 123}'
 ### 连接器授权管理
 
 ```bash
-# 列出已配置的连接器账户
+# 列出所有连接器账户
+lingtong-cli connector list
+lingtong-cli connector list --app-id 165
+
+# 列出特定连接器的账户
 lingtong-cli connector account list --connector kmerp
+lingtong-cli connector account list --connector kmerp --env prod
 
 # 验证账户连接
-lingtong-cli connector account verify --account-id 123
+lingtong-cli connector account verify --connector kmerp --account-id 123
 
 # 创建新账户
-lingtong-cli connector account create --connector kmerp --name "My Account" --data '{"app_key": "...", "app_secret": "..."}'
+lingtong-cli connector account create --connector kmerp --name "快麦测试账号" --env test --data '{"appKey":"...","appSecret":"..."}'
 
 # 检查工作流/场景的连接器授权状态
 lingtong-cli connector check-auth --workflow-id 947
+lingtong-cli connector check-auth --scene-id 123
+lingtong-cli connector check-auth --connector kmerp
 ```
 
-### 工作流执行与日志
+### 工作流全生命周期管理
+
+#### 基础操作
+
+```bash
+# 查询工作流详情
+lingtong-cli workflow info --workflow-id 123
+
+# 列出应用下的所有工作流
+lingtong-cli workflow list --app-id 165 --page 1 --size 20
+```
+
+#### 创建与更新
+
+```bash
+# 使用 DSL 文件创建工作流
+lingtong-cli workflow create --name "My Workflow" --dsl-file workflow.json --description "描述"
+
+# 使用 DSL 字符串创建
+lingtong-cli workflow create --name "Simple WF" --dsl-string '{"nodes":[...],"edges":[...]}'
+
+# 使用内置模板创建 (simple, connector, order_sync, approval, data_pipeline, api_wrapper)
+lingtong-cli workflow create --name "Order Sync" --template order_sync
+
+# 更新工作流
+lingtong-cli workflow update --workflow-id 100 --dsl-file updated.json
+lingtong-cli workflow update --workflow-id 100 --name "New Name"
+lingtong-cli workflow update --workflow-id 100 --dsl-file workflow.json --forced  # 强制更新
+
+# 删除工作流
+lingtong-cli workflow delete --workflow-id 100
+lingtong-cli workflow delete --workflow-id 100 --confirm  # 跳过确认
+```
+
+#### 模板管理
+
+```bash
+# 列出所有可用模板
+lingtong-cli workflow template list
+
+# 查看模板详情
+lingtong-cli workflow template show --name order_sync
+
+# 使用模板生成 DSL 文件
+lingtong-cli workflow template use --name approval --output approval-flow.json
+```
+
+#### 验证与测试
+
+```bash
+# 验证工作流 DSL
+lingtong-cli workflow validate --workflow-id 100
+lingtong-cli workflow validate --dsl-file workflow.json
+lingtong-cli workflow validate --dsl-file workflow.json --strict  # 包含警告
+
+# 运行工作流测试
+lingtong-cli workflow test run --workflow-id 100
+lingtong-cli workflow test run --workflow-id 100 --params '{"key":"value"}'
+lingtong-cli workflow test run --workflow-id 100 --test-data-file test-data.json --verbose
+```
+
+#### 发布与版本管理
+
+```bash
+# 发布工作流
+lingtong-cli workflow publish --workflow-id 100
+lingtong-cli workflow publish --workflow-id 100 --version "v1.0.0" --memo "Initial release"
+
+# 查看已发布版本
+lingtong-cli workflow versions --workflow-id 100 --page 1 --size 20
+
+# 回滚到指定版本
+lingtong-cli workflow version rollback --workflow-id 100 --version "v1.0.0"
+lingtong-cli workflow version rollback --workflow-id 100 --version "v1.0.0" --dry-run  # 预览
+lingtong-cli workflow version rollback --workflow-id 100 --version "v1.0.0" --confirm  # 跳过确认
+```
+
+#### API 访问控制
+
+```bash
+# 启用开放 API 访问
+lingtong-cli workflow api-enable --workflow-id 100
+
+# 禁用开放 API 访问
+lingtong-cli workflow api-disable --workflow-id 100
+
+# 测试已发布的工作流 API
+lingtong-cli workflow api-test --app-tag abc123 --params '{"key":"value"}'
+lingtong-cli workflow api-test --app-tag abc123 --token "custom-token" --params '{"key":"value"}'
+```
+
+#### 执行与日志
 
 ```bash
 # 执行工作流
 lingtong-cli workflow execute --workflow-id 123
+lingtong-cli workflow execute --workflow-id 123 --wait  # 等待完成
+lingtong-cli workflow execute --workflow-id 123 --params '{"key":"value"}'
 
 # 查询执行日志
-lingtong-cli workflow logs --receipt-id <receipt-id>
+lingtong-cli workflow logs --receipt-id abc123
+lingtong-cli workflow logs --receipt-id abc123 --pid 456  # 查询子上下文
+```
+
+#### 文档与依赖分析
+
+```bash
+# 生成工作流文档
+lingtong-cli workflow doc generate --workflow-id 100
+lingtong-cli workflow doc generate --dsl-file workflow.json --output-file docs.md
+lingtong-cli workflow doc generate --workflow-id 100 --include-api --include-examples
+
+# 分析工作流依赖
+lingtong-cli workflow dependency list --workflow-id 100
+lingtong-cli workflow dependency list --dsl-file workflow.json
+```
+
+### 场景管理
+
+```bash
+# 列出所有场景
+lingtong-cli scene list --page 1 --page-size 20
+
+# 创建场景
+lingtong-cli scene create --name "Order Sync" --description "Sync orders from ERP"
+
+# 查询场景详情
+lingtong-cli scene info --scene-id 123
+```
+
+### 表格管理
+
+```bash
+# 列出所有表格
+lingtong-cli table list
+
+# 查询表格数据
+lingtong-cli table data query --table-id 456 --filter '{"status":"active"}' --sort '{"field":"created_at"}'
+
+# 创建表格记录
+lingtong-cli table data create --table-id 456 --data '{"name":"test","value":100}'
+```
+
+### 模型元数据查询
+
+```bash
+# 查询连接器接口模型列表
+lingtong-cli model interface list --connector kmerp --filter-model-type query
+lingtong-cli model interface list --connector kmerp --filter-model-type all --auth-account-id 296
+
+# 获取领域模型
+lingtong-cli model domain get --connector kmerp --business order
+
+# 查询动态数据视图
+lingtong-cli model dynamic view --connector kmerp --auth-account-id 296
+lingtong-cli model dynamic view --connector kmerp --auth-account-id 296 --model-name SalesOrder
 ```
 
 ### Schema 自省

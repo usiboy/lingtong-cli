@@ -67,7 +67,17 @@ More help: lingtong-cli <command> --help`
 // Execute runs the root command and returns the process exit code.
 func Execute() int {
 	f := cmdutil.NewDefault()
+	rootCmd := NewRootCommand(f)
 
+	if err := rootCmd.Execute(); err != nil {
+		return handleRootError(f, err)
+	}
+	return 0
+}
+
+// NewRootCommand creates and returns the root cobra command with all subcommands registered.
+// This is exported for use in documentation generation and testing.
+func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "lingtong-cli",
 		Short:   "Lingtong iPaaS CLI — AI Agent integration tool",
@@ -94,10 +104,7 @@ func Execute() int {
 	// Register shortcuts
 	shortcuts.RegisterShortcuts(rootCmd, f)
 
-	if err := rootCmd.Execute(); err != nil {
-		return handleRootError(f, err)
-	}
-	return 0
+	return rootCmd
 }
 
 // handleRootError dispatches a command error to the appropriate handler.
