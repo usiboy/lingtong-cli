@@ -53,6 +53,44 @@ description: "绫通工作流全生命周期管理:设计、创建、验证、�
 - **功能**: 调用外部系统 API
 - **必需配置**: connector, interfaceModelId, authAccountId
 - **分支**: 支持 true(成功)/false(失败) 双路径
+- **参数映射**: 
+  - 普通连接器节点 (w_connector): 通过前端界面"参数映射设置"配置，DSL 中不直接设置 fieldMapping
+  - 管道节点 (w_modePipe): 支持 pipeConfig 和 queryParams 配置，用于批量数据同步
+  - **重要**: 创建连接器节点时，只需配置基本连接器信息，参数映射通过前端界面设置
+
+```json
+{
+  "id": "w_connector_sales",
+  "type": "w_connector",
+  "data": {
+    "title": "销售出库单查询",
+    "connector": "kmerp",
+    "interfaceModelId": 73,
+    "domainModelId": 3,
+    "authAccountId": 296,
+    "env": "test",
+    "catId": "交易",
+    "assertConfig": {"assertType": "throwException"},
+    "outputVariables": [
+      {
+        "variable": "response",
+        "variableAttr": {
+          "dataType": "object",
+          "title": "销售出库单查询返回",
+          "value": "$.",
+          "nodeId": "w_connector_sales"
+        }
+      }
+    ]
+  }
+}
+```
+
+**参数映射配置说明**:
+- 连接器接口的请求参数通过前端界面的"参数映射设置"对话框配置
+- 每个参数可以映射到上游节点的输出变量或输入固定值
+- DSL 中不需要包含 fieldMapping 或 queryParams 字段
+- 前端会根据 interfaceModelId 自动加载接口参数列表供用户配置
 
 ### w_modePipe - 数据管道节点
 - **功能**: 批量数据同步,自动处理分页和游标
