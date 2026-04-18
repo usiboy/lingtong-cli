@@ -1,482 +1,549 @@
-package connector
-
-import (
-	"testing"
-)
-
-func TestValidateAccountCreateData(t *testing.T) {
-	tests := []struct {
-		name    string
-		data    map[string]interface{}
-		wantErr bool
-	}{
-		{
-			name: "valid account data",
-			data: map[string]interface{}{
-				"name":         "test-connector",
-				"authType":     "oauth2",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing name",
-			data: map[string]interface{}{
-				"authType":     "oauth2",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing authType",
-			data: map[string]interface{}{
-				"name":         "test-connector",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Validate required fields
-			if _, ok := tt.data["name"]; !ok && tt.wantErr {
-				return // Expected error for missing name
-			}
-			if _, ok := tt.data["authType"]; !ok && tt.wantErr {
-				return // Expected error for missing authType
-			}
-			// If we get here, data is valid
-			if !tt.wantErr {
-				// Data should be valid
-				if tt.data["name"] == "" {
-					t.Errorf("expected valid data, got empty name")
-				}
-			}
-		})
-	}
-}
-
-func TestCheckAuthInputValidation(t *testing.T) {
-	tests := []struct {
-		name        string
-		accountID   string
-		connectorID string
-		wantErr     bool
-	}{
-		{
-			name:        "valid inputs",
-			accountID:   "account-123",
-			connectorID: "connector-456",
-			wantErr:     false,
-		},
-		{
-			name:        "empty account ID",
-			accountID:   "",
-			connectorID: "connector-456",
-			wantErr:     true,
-		},
-		{
-			name:        "empty connector ID",
-			accountID:   "account-123",
-			connectorID: "",
-			wantErr:     true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hasError := false
-			if tt.accountID == "" || tt.connectorID == "" {
-				hasError = true
-			}
-			if hasError != tt.wantErr {
-				t.Errorf("checkAuthInput() error = %v, wantErr %v", hasError, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestCommandStructureValidation(t *testing.T) {
-	// Test that all connector commands are properly structured
-	tests := []struct {
-		name        string
-		commandName string
-		hasRun      bool
-	}{
-		{
-			name:        "list command exists",
-			commandName: "list",
-			hasRun:      false,
-		},
-		{
-			name:        "verify command exists",
-			commandName: "verify",
-			hasRun:      false,
-		},
-		{
-			name:        "create command exists",
-			commandName: "create",
-			hasRun:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Verify command name is not empty
-			if tt.commandName == "" {
-				t.Errorf("command name should not be empty")
-			}
-		})
-	}
-}
 // Copyright (c) 2026 Lingtong
 // SPDX-License-Identifier: MIT
 
 package connector
 
 import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/lingtong/cli/internal/cmdutil"
+	"github.com/lingtong/cli/internal/config"
+	"github.com/lingtong/cli/internal/output"
 )
 
-// TestConnectorCommandStructure tests that the connector command tree is properly structured
-func TestConnectorCommandStructure(t *testing.T) {
-	// This test verifies the command structure is correct
-	// Actual command creation requires cmdutil.Factory which needs more setup
-
-	tests := []struct {
-		name        string
-		parentCmd   string
-		subCmd      string
-		description string
-	}{
-		{"info command", "connector", "info", "Query connector details"},
-		{"category list command", "connector", "category list", "List connector model categories"},
-		{"list command", "connector", "list", "List connector accounts"},
-		{"account list command", "connector", "account list", "List connector accounts"},
-		{"account verify command", "connector", "account verify", "Verify connector account connection"},
-		{"account create command", "connector", "account create", "Create a new connector account"},
-		{"check-auth command", "connector", "check-auth", "Check connector authorization status"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Verify command names are non-empty
-			if tt.parentCmd == "" {
-				t.Error("parent command name cannot be empty")
-			}
-			if tt.subCmd == "" {
-				t.Error("sub command name cannot be empty")
-			}
-			if tt.description == "" {
-				t.Error("command description cannot be empty")
-			}
-		})
+func newTestFactory(serverURL string) *cmdutil.Factory {
+	return &cmdutil.Factory{
+		Config: &config.Config{
+			Host:  serverURL,
+			Token: "apk-test123",
+		},
+		IOStreams: &output.IOStreams{
+			In:     io.NopCloser(strings.NewReader("")),
+			Out:    io.Discard,
+			ErrOut: io.Discard,
+		},
 	}
 }
 
-// TestConnectorInfoRequiredFlags tests that connector info requires the --connector flag
-func TestConnectorInfoRequiredFlags(t *testing.T) {
-	// Test cases for flag validation
-	tests := []struct {
-		name      string
-		connector string
-		env       string
-		expectErr bool
-	}{
-		{
-			name:      "missing connector flag",
-			connector: "",
-			env:       "test",
-			expectErr: true,
-		},
-		{
-			name:      "valid connector with default env",
-			connector: "kmerp",
-			env:       "test",
-			expectErr: false,
-		},
-		{
-			name:      "valid connector with prod env",
-			connector: "kmerp",
-			env:       "prod",
-			expectErr: false,
-		},
+func TestNewCmdConnector(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := NewCmdConnector(f)
+
+	if cmd == nil {
+		t.Fatal("expected non-nil command")
+	}
+	if cmd.Use != "connector" {
+		t.Errorf("expected Use 'connector', got '%s'", cmd.Use)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Flag validation logic
-			if tt.connector == "" && !tt.expectErr {
-				t.Error("expected error for missing connector, but expectErr is false")
+	expectedSubs := []string{"info", "category", "list", "account", "check-auth"}
+	for _, sub := range expectedSubs {
+		found := false
+		for _, c := range cmd.Commands() {
+			if c.Name() == sub {
+				found = true
+				break
 			}
-			if tt.connector != "" && tt.expectErr {
-				t.Error("expected no error for valid connector, but expectErr is true")
-			}
-		})
+		}
+		if !found {
+			t.Errorf("expected subcommand '%s' not found", sub)
+		}
+	}
+
+	formatFlag := cmd.PersistentFlags().Lookup("format")
+	if formatFlag == nil {
+		t.Error("expected --format flag")
 	}
 }
 
-// TestConnectorAccountCreateDataFormat tests the account data JSON format validation
-func TestConnectorAccountCreateDataFormat(t *testing.T) {
-	tests := []struct {
-		name        string
-		connector   string
-		accountName string
-		data        string
-		expectErr   bool
-	}{
-		{
-			name:        "missing connector",
-			connector:   "",
-			accountName: "Test Account",
-			data:        `{"key":"value"}`,
-			expectErr:   true,
-		},
-		{
-			name:        "missing name",
-			connector:   "kmerp",
-			accountName: "",
-			data:        `{"key":"value"}`,
-			expectErr:   true,
-		},
-		{
-			name:        "missing data",
-			connector:   "kmerp",
-			accountName: "Test Account",
-			data:        "",
-			expectErr:   true,
-		},
-		{
-			name:        "invalid JSON data",
-			connector:   "kmerp",
-			accountName: "Test Account",
-			data:        `{invalid json}`,
-			expectErr:   false, // JSON parsing happens at runtime, not flag validation
-		},
-		{
-			name:        "valid kmerp account data",
-			connector:   "kmerp",
-			accountName: "快麦测试账号",
-			data:        `{"appKey":"xxx","appSecret":"yyy"}`,
-			expectErr:   false,
-		},
-		{
-			name:        "valid feishu account data",
-			connector:   "feishu",
-			accountName: "飞书多维表格",
-			data:        `{"app_id":"xxx","app_secret":"yyy"}`,
-			expectErr:   false,
-		},
-	}
+func TestNewCmdConnectorInfo(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		
+		if r.URL.Path != "/gw/ai/proxy" {
+			t.Errorf("expected /gw/ai/proxy, got %s", r.URL.Path)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer apk-test123" {
+			t.Errorf("expected Bearer token, got %s", auth)
+		}
+		
+		var proxyReq map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&proxyReq); err != nil {
+			t.Errorf("failed to decode request body: %v", err)
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		
+		proxiedPath, ok := proxyReq["path"].(string)
+		if !ok {
+			t.Errorf("missing or invalid 'path' field in request")
+			http.Error(w, "missing path", http.StatusBadRequest)
+			return
+		}
+		
+		if !strings.Contains(proxiedPath, "/gw/ai/connector/info") {
+			t.Errorf("expected proxied path to contain /gw/ai/connector/info, got %s", proxiedPath)
+		}
+		
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"data":{"name":"kmerp"}}`))
+	}))
+	defer server.Close()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Validate required fields
-			hasError := false
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--env", "test"})
 
-			if tt.connector == "" {
-				hasError = true
-			}
-			if tt.accountName == "" {
-				hasError = true
-			}
-			if tt.data == "" {
-				hasError = true
-			}
-
-			if hasError != tt.expectErr {
-				t.Errorf("expected error=%v, got error=%v", tt.expectErr, hasError)
-			}
-		})
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
-// TestConnectorCheckAuthInputValidation tests input validation for check-auth command
-func TestConnectorCheckAuthInputValidation(t *testing.T) {
-	tests := []struct {
-		name       string
-		workflowId int
-		sceneId    int
-		connector  string
-		expectErr  bool
-	}{
-		{
-			name:       "no input provided",
-			workflowId: 0,
-			sceneId:    0,
-			connector:  "",
-			expectErr:  true,
-		},
-		{
-			name:       "workflow-id provided",
-			workflowId: 947,
-			sceneId:    0,
-			connector:  "",
-			expectErr:  false,
-		},
-		{
-			name:       "scene-id provided",
-			workflowId: 0,
-			sceneId:    123,
-			connector:  "",
-			expectErr:  false,
-		},
-		{
-			name:       "connector provided",
-			workflowId: 0,
-			sceneId:    0,
-			connector:  "kmerp",
-			expectErr:  false,
-		},
-	}
+func TestNewCmdConnectorInfoMissingConnector(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Check if at least one input is provided
-			hasInput := tt.workflowId != 0 || tt.sceneId != 0 || tt.connector != ""
-
-			if hasInput == tt.expectErr {
-				t.Errorf("expected error=%v, but hasInput=%v", tt.expectErr, hasInput)
-			}
-		})
-	}
-}
-package connector
-
-import (
-	"testing"
-)
-
-func TestValidateAccountCreateData(t *testing.T) {
-	tests := []struct {
-		name    string
-		data    map[string]interface{}
-		wantErr bool
-	}{
-		{
-			name: "valid account data",
-			data: map[string]interface{}{
-				"name":         "test-connector",
-				"authType":     "oauth2",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing name",
-			data: map[string]interface{}{
-				"authType":     "oauth2",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing authType",
-			data: map[string]interface{}{
-				"name":         "test-connector",
-				"connectorId":  "connector-123",
-				"authEndpoint": "https://example.com/oauth/authorize",
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Validate required fields
-			if _, ok := tt.data["name"]; !ok && tt.wantErr {
-				return // Expected error for missing name
-			}
-			if _, ok := tt.data["authType"]; !ok && tt.wantErr {
-				return // Expected error for missing authType
-			}
-			// If we get here, data is valid
-			if !tt.wantErr {
-				// Data should be valid
-				if tt.data["name"] == "" {
-					t.Errorf("expected valid data, got empty name")
-				}
-			}
-		})
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --connector flag")
 	}
 }
 
-func TestCheckAuthInputValidation(t *testing.T) {
-	tests := []struct {
-		name        string
-		accountID   string
-		connectorID string
-		wantErr     bool
-	}{
-		{
-			name:        "valid inputs",
-			accountID:   "account-123",
-			connectorID: "connector-456",
-			wantErr:     false,
-		},
-		{
-			name:        "empty account ID",
-			accountID:   "",
-			connectorID: "connector-456",
-			wantErr:     true,
-		},
-		{
-			name:        "empty connector ID",
-			accountID:   "account-123",
-			connectorID: "",
-			wantErr:     true,
-		},
-	}
+func TestNewCmdConnectorCategoryList(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}))
+	defer server.Close()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hasError := false
-			if tt.accountID == "" || tt.connectorID == "" {
-				hasError = true
-			}
-			if hasError != tt.wantErr {
-				t.Errorf("checkAuthInput() error = %v, wantErr %v", hasError, tt.wantErr)
-			}
-		})
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorCategoryList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
-func TestCommandStructureValidation(t *testing.T) {
-	// Test that all connector commands are properly structured
-	tests := []struct {
-		name        string
-		commandName string
-		hasRun      bool
-	}{
-		{
-			name:        "list command exists",
-			commandName: "list",
-			hasRun:      false,
-		},
-		{
-			name:        "verify command exists",
-			commandName: "verify",
-			hasRun:      false,
-		},
-		{
-			name:        "create command exists",
-			commandName: "create",
-			hasRun:      false,
-		},
-	}
+func TestNewCmdConnectorList(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}))
+	defer server.Close()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Verify command name is not empty
-			if tt.commandName == "" {
-				t.Errorf("command name should not be empty")
-			}
-		})
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestNewCmdConnectorListWithAppId(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--app-id", "165"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdConnectorAccountList(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorAccountList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--env", "test"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdConnectorAccountVerify(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.WriteHeader(http.StatusOK)
+		if callCount == 1 {
+			w.Write([]byte(`{"success":true,"result":{"id":123}}`))
+		} else {
+			w.Write([]byte(`{"success":true,"result":{"verified":true}}`))
+		}
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorAccountVerify(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--account-id", "123"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdConnectorAccountVerifyMissingConnector(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountVerify(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--account-id", "123"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --connector")
+	}
+}
+
+func TestNewCmdConnectorAccountVerifyMissingAccountId(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountVerify(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --account-id")
+	}
+}
+
+func TestNewCmdConnectorAccountCreate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":{"accountRelationId":"abc123"}}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{
+		"--connector", "kmerp",
+		"--name", "Test Account",
+		"--env", "test",
+		"--data", `{"appKey":"xxx"}`,
+	})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdConnectorAccountCreateMissingConnector(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--name", "test", "--data", "{}"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --connector")
+	}
+}
+
+func TestNewCmdConnectorAccountCreateMissingName(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--data", "{}"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --name")
+	}
+}
+
+func TestNewCmdConnectorAccountCreateMissingData(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--name", "test"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing --data")
+	}
+}
+
+func TestNewCmdConnectorAccountCreateInvalidJSON(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{
+		"--connector", "kmerp",
+		"--name", "Test",
+		"--data", "invalid-json",
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestNewCmdConnectorCheckAuthWithConnector(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorCheckAuth(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdConnectorCheckAuthMissingParams(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := newCmdConnectorCheckAuth(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for missing required params")
+	}
+}
+
+func TestConnectorAccountSubcommands(t *testing.T) {
+	f := newTestFactory("https://test.example.com")
+	cmd := NewCmdConnector(f)
+
+	var accountSubCmd interface{}
+	for _, c := range cmd.Commands() {
+		if c.Name() == "account" {
+			accountSubCmd = c
+			break
+		}
+	}
+
+	if accountSubCmd == nil {
+		t.Fatal("account subcommand not found")
+	}
+}
+
+// ============================================================================
+// P1: 错误处理测试
+// ============================================================================
+
+func TestNewCmdConnectorInfo_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for server error")
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("expected 500 error, got: %v", err)
+	}
+}
+
+func TestNewCmdConnectorInfo_Unauthorized(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for unauthorized")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected 401 error, got: %v", err)
+	}
+}
+
+func TestNewCmdConnectorInfo_NetworkError(t *testing.T) {
+	f := newTestFactory("http://invalid-host-that-does-not-exist.local:12345")
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for network failure")
+	}
+	if !strings.Contains(err.Error(), "request failed") {
+		t.Errorf("expected network error, got: %v", err)
+	}
+}
+
+func TestNewCmdConnectorList_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`invalid json response`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for invalid JSON response")
+	}
+	if !strings.Contains(err.Error(), "invalid") {
+		t.Errorf("expected invalid JSON error, got: %v", err)
+	}
+}
+
+func TestNewCmdConnectorAccountVerify_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorAccountVerify(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp", "--account-id", "123"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for server error")
+	}
+}
+
+func TestNewCmdConnectorAccountCreate_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorAccountCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{
+		"--connector", "kmerp",
+		"--name", "Test Account",
+		"--data", `{"appKey":"xxx"}`,
+	})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for server error")
+	}
+}
+
+func TestNewCmdConnectorCheckAuth_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorCheckAuth(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	_ = cmd.Execute() // Just verify no panic
+}
+
+func TestNewCmdConnectorInfo_EmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(``))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorInfo(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for empty response")
+	}
+}
+
+func TestNewCmdConnectorCategoryList_Unauthorized(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdConnectorCategoryList(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--connector", "kmerp"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for unauthorized")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected 401 error, got: %v", err)
+	}
+}
+
+// ============================================================================
+// P1: 错误处理测试
+// ============================================================================

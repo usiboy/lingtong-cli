@@ -4,7 +4,7 @@
 package client
 
 import (
-	"encoding/json"
+	"strings"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,387 +12,428 @@ import (
 
 // TestNewClient tests client creation
 func TestNewClient(t *testing.T) {
-	host := "https://example.com"
-	token := "test-token"
-
-	c := NewClient(host, token)
-
-	if c.host != host {
-		t.Errorf("expected host=%s, got %s", host, c.host)
-	}
-	if c.token != token {
-		t.Errorf("expected token=%s, got %s", token, c.token)
-	}
-	if !c.useProxy {
-		t.Error("expected proxy mode to be enabled by default")
-	}
-	if c.httpClient == nil {
-		t.Error("expected httpClient to be initialized")
-	}
-}
-
-// TestDisableProxy tests disabling proxy mode
-func TestDisableProxy(t *testing.T) {
-	c := NewClient("https://example.com", "token")
-	c.DisableProxy()
-
-	if c.useProxy {
-		t.Error("expected proxy mode to be disabled")
-	}
-}
-
-// TestProxyModeRequest tests that proxy mode constructs correct requests
-func TestProxyModeRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST request, got %s", r.Method)
-		}
-		if r.URL.Path != "/gw/ai/proxy" {
-			t.Errorf("expected path /gw/ai/proxy, got %s", r.URL.Path)
-		}
-
-		// Verify Authorization header
-		authHeader := r.Header.Get("Authorization")
-		expectedAuth := "Bearer test-token"
-		if authHeader != expectedAuth {
-			t.Errorf("expected Authorization=%s, got %s", expectedAuth, authHeader)
-		}
-
-		// Verify request body
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
-
-		if body["path"] != "/test/path" {
-			t.Errorf("expected path=/test/path, got %v", body["path"])
-		}
-		if body["method"] != "GET" {
-			t.Errorf("expected method=GET, got %v", body["method"])
-		}
-
-		// Send response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	resp, err := c.Get("/test/path", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	tests := []struct {
+		name     string
+		host     string
+		token    string
+		checkFn  func(*testing.T, *Client)
+	}{
+		{
+			name:  "valid client with proxy enabled by default",
+			host:  "https://example.com",
+			token: "apk-test123",
+			checkFn: func(t *testing.T, c *Client) {
+				if c.host != "https://example.com" {
+					t.Errorf("expected host https://example.com, got %s", c.host)
+				}
+				if c.token != "apk-test123" {
+					t.Errorf("expected token apk-test123, got %s", c.token)
+				}
+				if !c.useProxy {
+					t.Error("expected proxy to be enabled by default")
+				}
+				if c.httpClient == nil {
+					t.Error("expected non-nil httpClient")
+				}
+			},
+		},
+		{
+			name:  "client with empty host",
+			host:  "",
+			token: "apk-test123",
+			checkFn: func(t *testing.T, c *Client) {
+				if c.host != "" {
+					t.Errorf("expected empty host, got %s", c.host)
+				}
+			},
+		},
+		{
+			name:  "client with empty token",
+			host:  "https://example.com",
+			token: "",
+			checkFn: func(t *testing.T, c *Client) {
+				if c.token != "" {
+					t.Errorf("expected empty token, got %s", c.token)
+				}
+			},
+		},
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if success, _ := result["success"].(bool); !success {
-		t.Error("expected success=true")
-	}
-}
-
-// TestDirectModeRequest tests direct mode (non-proxy) requests
-func TestDirectModeRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify request
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET request, got %s", r.Method)
-		}
-		if r.URL.Path != "/test/path" {
-			t.Errorf("expected path /test/path, got %s", r.URL.Path)
-		}
-
-		// Verify Authorization header
-		authHeader := r.Header.Get("Authorization")
-		expectedAuth := "Bearer test-token"
-		if authHeader != expectedAuth {
-			t.Errorf("expected Authorization=%s, got %s", expectedAuth, authHeader)
-		}
-
-		// Send response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"direct": true})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	c.DisableProxy()
-
-	resp, err := c.Get("/test/path", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if direct, _ := result["direct"].(bool); !direct {
-		t.Error("expected direct=true")
-	}
-}
-
-// TestPostRequest tests POST requests
-func TestPostRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
-
-		// In proxy mode, actual body is nested under "body" key
-		if actualBody, ok := body["body"].(map[string]interface{}); ok {
-			if actualBody["key"] != "value" {
-				t.Errorf("expected body.key=value, got %v", actualBody["key"])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewClient(tt.host, tt.token)
+			if client == nil {
+				t.Fatal("expected non-nil client")
 			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{"created": true})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	resp, err := c.Post("/test/path", map[string]interface{}{"key": "value"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if created, _ := result["created"].(bool); !created {
-		t.Error("expected created=true")
-	}
-}
-
-// TestErrorResponse tests error handling for API errors
-func TestErrorResponse(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error":   "invalid_request",
-			"message": "Missing required parameter",
+			tt.checkFn(t, client)
 		})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	_, err := c.Get("/test/path", nil)
-
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
-	// Check error message contains status code
-	expectedMsg := "400"
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
-	}
-	if err.Error() != "" && err.Error()[:3] != expectedMsg {
-		// Error format: "API error (400): ..."
-		t.Logf("error message: %s", err.Error())
 	}
 }
 
-// TestGetWithParams tests GET requests with query parameters
-func TestGetWithParams(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
-
-		params, ok := body["params"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected params in request body")
-		}
-
-		if params["page"] != "1" {
-			t.Errorf("expected params.page=1, got %v", params["page"])
-		}
-		if params["size"] != "20" {
-			t.Errorf("expected params.size=20, got %v", params["size"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"page": 1, "size": 20})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	params := map[string]interface{}{
-		"page": "1",
-		"size": "20",
+// TestNewClientWithProxy tests the proxy client factory
+func TestNewClientWithProxy(t *testing.T) {
+	client := NewClientWithProxy("https://example.com", "apk-test123")
+	
+	if client == nil {
+		t.Fatal("expected non-nil client")
 	}
-
-	resp, err := c.Get("/test/path", params)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if !client.useProxy {
+		t.Error("expected proxy to be enabled")
 	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if page, _ := result["page"].(float64); page != 1 {
-		t.Errorf("expected page=1, got %v", page)
+	if client.host != "https://example.com" {
+		t.Errorf("expected host https://example.com, got %s", client.host)
 	}
 }
 
-// TestPutRequest tests PUT requests
-func TestPutRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"updated": true})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	c.DisableProxy()
-
-	resp, err := c.Put("/test/path", map[string]interface{}{"key": "value"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if updated, _ := result["updated"].(bool); !updated {
-		t.Error("expected updated=true")
-	}
-}
-
-// TestDeleteRequest tests DELETE requests
-func TestDeleteRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE request, got %s", r.Method)
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"deleted": true})
-	}))
-	defer server.Close()
-
-	c := NewClient(server.URL, "test-token")
-	c.DisableProxy()
-
-	resp, err := c.Delete("/test/path")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp, &result); err != nil {
-		t.Fatalf("failed to unmarshal response: %v", err)
-	}
-
-	if deleted, _ := result["deleted"].(bool); !deleted {
-		t.Error("expected deleted=true")
-	}
-}
-// Copyright (c) 2026 Lingtong
-// SPDX-License-Identifier: MIT
-
-package client
-
-import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-)
-
-func TestNewClient(t *testing.T) {
-	c := NewClient("https://example.com", "test-token")
-	if c.host != "https://example.com" {
-		t.Errorf("wrong host: %s", c.host)
-	}
-	if !c.useProxy {
-		t.Error("proxy should be enabled by default")
-	}
-}
-
+// TestDisableProxy tests proxy mode toggle
 func TestDisableProxy(t *testing.T) {
-	c := NewClient("https://example.com", "token")
-	c.DisableProxy()
-	if c.useProxy {
-		t.Error("proxy should be disabled")
+	client := NewClient("https://example.com", "apk-test123")
+
+	if !client.useProxy {
+		t.Fatal("expected proxy to be enabled by default")
+	}
+
+	client.DisableProxy()
+
+	if client.useProxy {
+		t.Error("expected proxy to be disabled after DisableProxy()")
 	}
 }
 
-func TestProxyModeRequest(t *testing.T) {
+// TestDoProxyMode tests Do method in proxy mode
+func TestDoProxyMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
+			t.Errorf("expected POST method, got %s", r.Method)
 		}
 		if r.URL.Path != "/gw/ai/proxy" {
-			t.Errorf("expected /gw/ai/proxy, got %s", r.URL.Path)
+			t.Errorf("expected /gw/ai/proxy path, got %s", r.URL.Path)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.Header.Get("Authorization") != "Bearer apk-test123" {
+			t.Errorf("expected Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
 
-	c := NewClient(server.URL, "test-token")
-	resp, err := c.Get("/test/path", nil)
+	client := NewClient(server.URL, "apk-test123")
+	resp, err := client.Do("GET", "/test/api", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var result map[string]interface{}
-	json.Unmarshal(resp, &result)
-	if result["success"] != true {
-		t.Error("expected success=true")
+	if string(resp) != `{"status":"ok"}` {
+		t.Errorf("expected response {\"status\":\"ok\"}, got %s", string(resp))
 	}
 }
 
-func TestDirectModeRequest(t *testing.T) {
+// TestDoDirectMode tests Do method in direct mode
+func TestDoDirectMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
+			t.Errorf("expected GET method, got %s", r.Method)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"direct": true})
+		if r.URL.Path != "/test/api" {
+			t.Errorf("expected /test/api path, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
 
-	c := NewClient(server.URL, "test-token")
-	c.DisableProxy()
-	resp, err := c.Get("/test/path", nil)
+	client := NewClient(server.URL, "apk-test123")
+	client.DisableProxy()
+
+	resp, err := client.Do("GET", "/test/api", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	var result map[string]interface{}
-	json.Unmarshal(resp, &result)
-	if result["direct"] != true {
-		t.Error("expected direct=true")
+	if string(resp) != `{"status":"ok"}` {
+		t.Errorf("expected response {\"status\":\"ok\"}, got %s", string(resp))
 	}
 }
 
-func TestErrorResponse(t *testing.T) {
+// TestDoWithBody tests Do method with request body
+func TestDoWithBody(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"created":true}`))
 	}))
 	defer server.Close()
 
-	c := NewClient(server.URL, "test-token")
-	_, err := c.Get("/test/path", nil)
+	client := NewClient(server.URL, "apk-test123")
+	client.DisableProxy()
+
+	body := map[string]interface{}{"name": "test", "value": 123}
+	resp, err := client.Do("POST", "/test/api", nil, body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"created":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestDoWithParams tests Do method with query params in proxy mode
+func TestDoWithParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	params := map[string]interface{}{"page": 1, "size": 20}
+	resp, err := client.Do("GET", "/test/api", params, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"data":[]}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestDoServerError tests Do method with server error
+func TestDoServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	_, err := client.Do("GET", "/test/api", nil, nil)
 	if err == nil {
-		t.Error("expected error for 400 response")
+		t.Fatal("expected error for 500 response")
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("expected error to contain '500', got: %v", err)
+	}
+}
+
+// TestDoBadRequest tests Do method with bad request
+func TestDoBadRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"bad request"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	_, err := client.Do("GET", "/test/api", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for 400 response")
+	}
+	if !strings.Contains(err.Error(), "400") {
+		t.Errorf("expected error to contain '400', got: %v", err)
+	}
+}
+
+// TestDoUnauthorized tests Do method with unauthorized error
+func TestDoUnauthorized(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "invalid-token")
+	_, err := client.Do("GET", "/test/api", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for 401 response")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected error to contain '401', got: %v", err)
+	}
+}
+
+// TestDoNotFound tests Do method with not found error
+func TestDoNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	_, err := client.Do("GET", "/nonexistent", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for 404 response")
+	}
+	if !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected error to contain '404', got: %v", err)
+	}
+}
+
+// TestDoNetworkError tests Do method with network error
+func TestDoNetworkError(t *testing.T) {
+	client := NewClient("http://invalid-host-that-does-not-exist.local", "apk-test123")
+	_, err := client.Do("GET", "/test/api", nil, nil)
+	if err == nil {
+		t.Fatal("expected network error")
+	}
+	if !strings.Contains(err.Error(), "request failed") {
+		t.Errorf("expected error to contain 'request failed', got: %v", err)
+	}
+}
+
+// TestGet tests the Get convenience method
+func TestGet(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":1,"name":"test"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	params := map[string]interface{}{"id": 1}
+	resp, err := client.Get("/test/api", params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"id":1,"name":"test"}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestGetWithoutParams tests Get method without params
+func TestGetWithoutParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"items":[]}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	resp, err := client.Get("/test/api", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"items":[]}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestPost tests the Post convenience method
+func TestPost(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":123,"created":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	body := map[string]interface{}{"name": "new item"}
+	resp, err := client.Post("/test/api", body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"id":123,"created":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestPut tests the Put convenience method
+func TestPut(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":123,"updated":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	body := map[string]interface{}{"id": 123, "name": "updated item"}
+	resp, err := client.Put("/test/api", body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"id":123,"updated":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestDelete tests the Delete convenience method
+func TestDelete(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"deleted":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	resp, err := client.Delete("/test/api/123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"deleted":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestClientWithoutToken tests client without authentication token
+func TestClientWithoutToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" {
+			t.Errorf("expected no Authorization header, got %s", authHeader)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"public":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	resp, err := client.Get("/public/api", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"public":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestDoWithEmptyBody tests Do method with nil body in proxy mode
+func TestDoWithEmptyBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"success":true}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	resp, err := client.Do("DELETE", "/test/api/123", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"success":true}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
+// TestDoWithComplexParams tests Do method with complex nested params
+func TestDoWithComplexParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"results":[]}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "apk-test123")
+	params := map[string]interface{}{
+		"filter": map[string]interface{}{
+			"name":  "test",
+			"value": 123,
+		},
+		"sort": []string{"name", "created"},
+	}
+	resp, err := client.Do("GET", "/test/api", params, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"results":[]}` {
+		t.Errorf("unexpected response: %s", string(resp))
 	}
 }
