@@ -9,14 +9,14 @@ lingtong-cli 使用 API Key（格式：`apk-xxx`）进行认证，Token 安全�
 ### 方式 1: 直接提供 Token（推荐）
 
 ```bash
-lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+lingtong-cli auth login --token apk-xxx
 ```
 
 ### 方式 2: 从环境变量读取
 
 ```bash
 # 设置环境变量
-export LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+export LINGTONG_API_TOKEN=apk-xxx
 
 # 从环境变量登录
 lingtong-cli auth login --from-env
@@ -66,7 +66,7 @@ Logged out successfully. Token removed from keychain.
 lingtong-cli config init --host https://app1.ltpass.com
 
 # 2. 使用环境变量认证（适合 AI Agent）
-export LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+export LINGTONG_API_TOKEN=apk-xxx
 lingtong-cli auth login --from-env
 
 # 3. 验证认证状态
@@ -82,7 +82,7 @@ lingtong-cli connector info --connector kmerp --env test
 
 ```bash
 LINGTONG_API_HOST=https://app1.ltpass.com
-LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+LINGTONG_API_TOKEN=apk-xxx
 ```
 
 然后 AI Agent 可以自动读取并认证：
@@ -153,7 +153,7 @@ lingtong-cli config init --host https://app1.ltpass.com
 
 # 2. 登录
 echo "2. 登录..."
-lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+lingtong-cli auth login --token apk-xxx
 
 # 3. 验证状态
 echo "3. 验证认证状态..."

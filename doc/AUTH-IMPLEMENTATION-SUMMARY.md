@@ -15,12 +15,12 @@
 
 #### 方式 1: 直接提供 Token
 ```bash
-lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+lingtong-cli auth login --token apk-xxx
 ```
 
 #### 方式 2: 从环境变量读取
 ```bash
-export LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+export LINGTONG_API_TOKEN=apk-xxx
 lingtong-cli auth login --from-env
 ```
 
@@ -171,7 +171,7 @@ AI Agent 可以自动读取 `.opencode/skills/lingtong-api/.env` 中的配置：
 
 ```bash
 LINGTONG_API_HOST=https://app1.ltpass.com
-LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+LINGTONG_API_TOKEN=apk-xxx
 ```
 
 然后执行：

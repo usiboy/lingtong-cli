@@ -14,6 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	storeToken      = auth.StoreToken
+	getToken        = auth.GetToken
+	deleteToken     = auth.DeleteToken
+	verifyTokenFunc = verifyToken
+)
+
 // NewCmdAuth creates the auth command.
 func NewCmdAuth(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -45,7 +52,7 @@ The token can be provided in three ways:
 
 EXAMPLES:
     lingtong-cli auth login
-    lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+    lingtong-cli auth login --token apk-xxx
     lingtong-cli auth login --from-env`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			host := f.Config.Host
@@ -76,14 +83,14 @@ EXAMPLES:
 			}
 
 			// Store token in OS keychain
-			err := auth.StoreToken(token)
+			err := storeToken(token)
 			if err != nil {
 				return fmt.Errorf("failed to store token: %w", err)
 			}
 
 			// Verify token by making a test request
 			fmt.Print("Verifying token... ")
-			err = verifyToken(host, token)
+			err = verifyTokenFunc(host, token)
 			if err != nil {
 				fmt.Printf("Warning: Token verification failed: %v\n", err)
 				fmt.Println("Token saved but may be invalid. You can try again with a valid token.")
@@ -109,7 +116,7 @@ func verifyToken(host, token string) error {
 		"connector": "kmerp",
 		"env":       "test",
 	})
-	
+
 	// We only care about authentication errors (401), not business errors
 	if err != nil {
 		errStr := err.Error()
@@ -119,7 +126,7 @@ func verifyToken(host, token string) error {
 		// Other errors (network, etc.) are not critical
 		return nil
 	}
-	
+
 	return nil
 }
 
@@ -128,7 +135,7 @@ func newCmdAuthStatus(f *cmdutil.Factory) *cobra.Command {
 		Use:   "status",
 		Short: "Check authentication status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			token, err := auth.GetToken()
+			token, err := getToken()
 			if err != nil {
 				fmt.Println("Not authenticated. Run `lingtong-cli auth login` to login.")
 				return nil
@@ -143,7 +150,7 @@ func newCmdAuthStatus(f *cmdutil.Factory) *cobra.Command {
 			// Verify token validity
 			if f.Config.Host != "" {
 				fmt.Print("\nVerifying token... ")
-				err := verifyToken(f.Config.Host, token)
+				err := verifyTokenFunc(f.Config.Host, token)
 				if err != nil {
 					fmt.Printf("Invalid: %v\n", err)
 					fmt.Println("Run `lingtong-cli auth login` to re-authenticate.")
@@ -162,7 +169,7 @@ func newCmdAuthLogout(f *cmdutil.Factory) *cobra.Command {
 		Use:   "logout",
 		Short: "Logout and clear stored token",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := auth.DeleteToken()
+			err := deleteToken()
 			if err != nil {
 				return fmt.Errorf("failed to clear token: %w", err)
 			}
@@ -172,10 +179,12 @@ func newCmdAuthLogout(f *cmdutil.Factory) *cobra.Command {
 	}
 }
 
-// maskToken masks the token for display, showing only first 8 and last 4 characters
+// maskToken masks the token for display, showing only first 8 characters and a safe suffix.
 func maskToken(token string) string {
 	if len(token) <= 12 {
 		return "****"
 	}
-	return token[:8] + "..." + token[len(token)-4:]
+
+	suffixLen := min(5, len(token)-10)
+	return token[:8] + "..." + token[len(token)-suffixLen:]
 }

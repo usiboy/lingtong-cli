@@ -4,19 +4,20 @@
 package client
 
 import (
-	"strings"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 // TestNewClient tests client creation
 func TestNewClient(t *testing.T) {
 	tests := []struct {
-		name     string
-		host     string
-		token    string
-		checkFn  func(*testing.T, *Client)
+		name    string
+		host    string
+		token   string
+		checkFn func(*testing.T, *Client)
 	}{
 		{
 			name:  "valid client with proxy enabled by default",
@@ -34,6 +35,16 @@ func TestNewClient(t *testing.T) {
 				}
 				if c.httpClient == nil {
 					t.Error("expected non-nil httpClient")
+				}
+			},
+		},
+		{
+			name:  "client trims trailing host slash",
+			host:  "https://example.com/",
+			token: "apk-test123",
+			checkFn: func(t *testing.T, c *Client) {
+				if c.host != "https://example.com" {
+					t.Errorf("expected trimmed host https://example.com, got %s", c.host)
 				}
 			},
 		},
@@ -73,7 +84,7 @@ func TestNewClient(t *testing.T) {
 // TestNewClientWithProxy tests the proxy client factory
 func TestNewClientWithProxy(t *testing.T) {
 	client := NewClientWithProxy("https://example.com", "apk-test123")
-	
+
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
@@ -115,6 +126,17 @@ func TestDoProxyMode(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer apk-test123" {
 			t.Errorf("expected Bearer token, got %s", r.Header.Get("Authorization"))
 		}
+
+		var payload map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("failed to decode proxy request: %v", err)
+		}
+		if payload["path"] != "/test/api" {
+			t.Errorf("expected proxy path /test/api, got %v", payload["path"])
+		}
+		if payload["method"] != "GET" {
+			t.Errorf("expected proxy method GET, got %v", payload["method"])
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	}))
@@ -127,6 +149,36 @@ func TestDoProxyMode(t *testing.T) {
 	}
 	if string(resp) != `{"status":"ok"}` {
 		t.Errorf("expected response {\"status\":\"ok\"}, got %s", string(resp))
+	}
+}
+
+// TestDoDirectModeWithParams tests query param handling outside proxy mode.
+func TestDoDirectModeWithParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") != "2" {
+			t.Errorf("expected page query param 2, got %s", r.URL.Query().Get("page"))
+		}
+		if values := r.URL.Query()["tag"]; len(values) != 2 || values[0] != "a" || values[1] != "b" {
+			t.Errorf("expected tag query params [a b], got %v", values)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL+"/", "apk-test123")
+	client.DisableProxy()
+
+	params := map[string]interface{}{
+		"page": 2,
+		"tag":  []string{"a", "b"},
+	}
+	resp, err := client.Do("GET", "/test/api", params, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"status":"ok"}` {
+		t.Errorf("unexpected response: %s", string(resp))
 	}
 }
 
@@ -270,7 +322,11 @@ func TestDoNotFound(t *testing.T) {
 
 // TestDoNetworkError tests Do method with network error
 func TestDoNetworkError(t *testing.T) {
-	client := NewClient("http://invalid-host-that-does-not-exist.local", "apk-test123")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	serverURL := server.URL
+	server.Close()
+
+	client := NewClient(serverURL, "")
 	_, err := client.Do("GET", "/test/api", nil, nil)
 	if err == nil {
 		t.Fatal("expected network error")

@@ -10,6 +10,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
+	"strings"
+	"time"
 )
 
 // Client is the HTTP client for Lingtong API.
@@ -18,18 +21,19 @@ type Client struct {
 	token      string
 	httpClient *http.Client
 	// Proxy mode: all requests go through /gw/ai/proxy
-	useProxy   bool
+	useProxy bool
 }
 
 // NewClient creates a new API client.
 func NewClient(host, token string) *Client {
 	jar, _ := cookiejar.New(nil)
 	httpClient := &http.Client{
-		Jar: jar,
+		Jar:     jar,
+		Timeout: 30 * time.Second,
 	}
-	
+
 	return &Client{
-		host:       host,
+		host:       strings.TrimRight(host, "/"),
 		token:      token,
 		httpClient: httpClient,
 		useProxy:   true, // Default to proxy mode for security
@@ -53,7 +57,7 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 
 	if c.useProxy {
 		// Proxy mode: POST to /gw/ai/proxy with path and body in JSON
-		url = c.host + "/gw/ai/proxy"
+		url = joinURL(c.host, "/gw/ai/proxy")
 		proxyBody := map[string]interface{}{
 			"path":   path,
 			"method": method,
@@ -72,7 +76,10 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 		method = http.MethodPost
 	} else {
 		// Direct mode (legacy)
-		url = c.host + path
+		url = joinURL(c.host, path)
+		if params != nil && len(params) > 0 {
+			url = appendQueryParams(url, params)
+		}
 		if body != nil {
 			b, err := json.Marshal(body)
 			if err != nil {
@@ -88,7 +95,7 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Authentication via Bearer token
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
@@ -110,6 +117,40 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 	}
 
 	return respBody, nil
+}
+
+func joinURL(host, path string) string {
+	if host == "" {
+		return path
+	}
+	return strings.TrimRight(host, "/") + "/" + strings.TrimLeft(path, "/")
+}
+
+func appendQueryParams(rawURL string, params map[string]interface{}) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+
+	query := parsed.Query()
+	for key, value := range params {
+		switch typed := value.(type) {
+		case nil:
+			continue
+		case []string:
+			for _, item := range typed {
+				query.Add(key, item)
+			}
+		case []interface{}:
+			for _, item := range typed {
+				query.Add(key, fmt.Sprint(item))
+			}
+		default:
+			query.Set(key, fmt.Sprint(typed))
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 // Get performs a GET request.

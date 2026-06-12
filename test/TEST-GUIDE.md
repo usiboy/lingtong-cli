@@ -110,7 +110,7 @@ cd lingtong-cli
 ```bash
 # 测试环境配置
 TEST_HOST="https://app1.ltpass.com"
-TEST_TOKEN="${LINGTONG_API_TOKEN:-apk-Gx6vDOEmALY7iJRcLZcD4nWF}"
+TEST_TOKEN="${LINGTONG_API_TOKEN:-apk-xxx}"
 TEST_CONNECTOR="kmerp"
 TEST_ENV="test"
 ```

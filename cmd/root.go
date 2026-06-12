@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/lingtong/cli/cmd/api"
+	"github.com/lingtong/cli/cmd/app"
 	"github.com/lingtong/cli/cmd/auth"
 	"github.com/lingtong/cli/cmd/config"
 	"github.com/lingtong/cli/cmd/connector"
@@ -100,6 +101,7 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.AddCommand(table.NewCmdTable(f))
 	rootCmd.AddCommand(model.NewCmdModel(f))
 	rootCmd.AddCommand(api.NewCmdApi(f))
+	rootCmd.AddCommand(app.NewCmdApp(f))
 
 	// Register shortcuts
 	shortcuts.RegisterShortcuts(rootCmd, f)

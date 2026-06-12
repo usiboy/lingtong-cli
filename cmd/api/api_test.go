@@ -16,7 +16,6 @@ import (
 	"github.com/lingtong/cli/internal/cmdutil"
 	"github.com/lingtong/cli/internal/config"
 	"github.com/lingtong/cli/internal/output"
-	"github.com/spf13/cobra"
 )
 
 // TestParseData tests the parseData function with various inputs
@@ -322,9 +321,9 @@ func TestApiCommandGET(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{
-				"id":      123,
-				"name":    "test-connector",
-				"status":  "active",
+				"id":     123,
+				"name":   "test-connector",
+				"status": "active",
 			},
 		})
 	}))
@@ -1089,18 +1088,11 @@ func TestApiCommandOutputFormat(t *testing.T) {
 // TestClientGetWithTestServer tests the client.Get method directly
 func TestClientGetWithTestServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST (proxy mode), got %s", r.Method)
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET in direct mode, got %s", r.Method)
 		}
-
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["path"] != "/api/test" {
-			t.Errorf("body path = %v, want /api/test", body["path"])
-		}
-		if body["method"] != "GET" {
-			t.Errorf("body method = %v, want GET", body["method"])
+		if r.URL.Path != "/api/test" {
+			t.Errorf("path = %s, want /api/test", r.URL.Path)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -1110,9 +1102,8 @@ func TestClientGetWithTestServer(t *testing.T) {
 	defer server.Close()
 
 	c := client.NewClient(server.URL, "token")
-	c.DisableProxy() // Test in direct mode for clarity
+	c.DisableProxy()
 
-	// In direct mode, GET request
 	resp, err := c.Get("/api/test", nil)
 	if err != nil {
 		t.Fatalf("client.Get() error = %v", err)

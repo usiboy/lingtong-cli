@@ -20,22 +20,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockKeychain is a mock implementation for testing that doesn't rely on OS keychain
-type mockKeychain struct {
-	token string
-	err   error
-}
+func overrideAuthDependencies(t *testing.T, store func(string) error, get func() (string, error), delete func() error, verify func(string, string) error) {
+	t.Helper()
 
-var (
-	mockStoreToken  func(token string) error
-	mockGetToken    func() (string, error)
-	mockDeleteToken func() error
-)
+	originalStoreToken := storeToken
+	originalGetToken := getToken
+	originalDeleteToken := deleteToken
+	originalVerifyTokenFunc := verifyTokenFunc
 
-func init() {
-	// Override auth functions for testing
-	// Note: Since auth.StoreToken/GetToken/DeleteToken use go-keyring which requires OS support,
-	// we test the command logic by mocking these at the package level through test helpers.
+	if store != nil {
+		storeToken = store
+	}
+	if get != nil {
+		getToken = get
+	}
+	if delete != nil {
+		deleteToken = delete
+	}
+	if verify != nil {
+		verifyTokenFunc = verify
+	}
+
+	t.Cleanup(func() {
+		storeToken = originalStoreToken
+		getToken = originalGetToken
+		deleteToken = originalDeleteToken
+		verifyTokenFunc = originalVerifyTokenFunc
+	})
 }
 
 // TestNewCmdAuth tests the creation of the auth command
@@ -248,6 +259,10 @@ func TestNewCmdAuthLogin_NoHost(t *testing.T) {
 
 // TestNewCmdAuthStatus_NoToken tests status when not authenticated
 func TestNewCmdAuthStatus_NoToken(t *testing.T) {
+	overrideAuthDependencies(t, nil, func() (string, error) {
+		return "", fmt.Errorf("not authenticated")
+	}, nil, nil)
+
 	f := &cmdutil.Factory{
 		Config: &config.Config{
 			Host: "https://test.example.com",
@@ -275,10 +290,14 @@ func TestNewCmdAuthStatus_NoToken(t *testing.T) {
 
 // TestNewCmdAuthStatus_WithToken tests status when authenticated
 func TestNewCmdAuthStatus_WithToken(t *testing.T) {
-	// Skip this test if keychain is not available
-	if os.Getenv("LINGTONG_SKIP_KEYCHAIN_TESTS") == "1" {
-		t.Skip("Skipping keychain tests")
-	}
+	token := "apk-status-test-token"
+	overrideAuthDependencies(t, nil, func() (string, error) {
+		return token, nil
+	}, nil, func(host, token string) error {
+		assert.Equal(t, "https://test.example.com", host)
+		assert.Equal(t, "apk-status-test-token", token)
+		return nil
+	})
 
 	f := &cmdutil.Factory{
 		Config: &config.Config{
@@ -289,36 +308,23 @@ func TestNewCmdAuthStatus_WithToken(t *testing.T) {
 	cmd := NewCmdAuth(f)
 	statusCmd, _, _ := cmd.Find([]string{"status"})
 
-	// Try to get token - if it fails, skip the detailed test
-	token, err := authGetToken()
-	if err != nil {
-		t.Skip("No token stored, skipping detailed status test")
-	}
-
 	var buf bytes.Buffer
 	r, w, _ := os.Pipe()
 	oldStdout := os.Stdout
 	os.Stdout = w
 
-	_ = statusCmd.RunE(statusCmd, []string{})
+	err := statusCmd.RunE(statusCmd, []string{})
 
 	w.Close()
 	os.Stdout = oldStdout
 	io.Copy(&buf, r)
 
+	require.NoError(t, err)
 	output := buf.String()
-	if token != "" {
-		assert.Contains(t, output, "Authenticated: Yes")
-		assert.Contains(t, output, maskToken(token))
-		assert.Contains(t, output, "https://test.example.com")
-	}
-}
-
-// authGetToken is a test wrapper that calls auth.GetToken
-func authGetToken() (string, error) {
-	// In production, this would call auth.GetToken()
-	// For testing, we return error since keychain may not be available
-	return "", fmt.Errorf("keychain not available in tests")
+	assert.Contains(t, output, "Authenticated: Yes")
+	assert.Contains(t, output, maskToken(token))
+	assert.Contains(t, output, "https://test.example.com")
+	assert.Contains(t, output, "Valid")
 }
 
 // TestNewCmdLogout tests logout command
@@ -381,19 +387,8 @@ func TestVerifyToken_ResponseContains401(t *testing.T) {
 
 // TestNewCmdAuthLogin_TokenFromEnv tests login with --from-env flag
 func TestNewCmdAuthLogin_TokenFromEnv(t *testing.T) {
-	// Save original env
-	originalToken := os.Getenv("LINGTONG_API_TOKEN")
-	defer func() {
-		if originalToken == "" {
-			os.Unsetenv("LINGTONG_API_TOKEN")
-		} else {
-			os.Setenv("LINGTONG_API_TOKEN", originalToken)
-		}
-	}()
+	t.Setenv("LINGTONG_API_TOKEN", "")
 
-	// Test when env is not set
-	os.Unsetenv("LINGTONG_API_TOKEN")
-	
 	f := &cmdutil.Factory{
 		Config: &config.Config{
 			Host: "https://test.example.com",
@@ -414,12 +409,18 @@ func TestNewCmdAuthLogin_TokenFromEnv(t *testing.T) {
 
 // TestNewCmdAuthLogin_TokenFromEnv_WithValue tests login with --from-env and valid env var
 func TestNewCmdAuthLogin_TokenFromEnv_WithValue(t *testing.T) {
-	// This test would require mocking auth.StoreToken
-	// For now, we test the env reading logic
-	originalToken := os.Getenv("LINGTONG_API_TOKEN")
-	defer os.Setenv("LINGTONG_API_TOKEN", originalToken)
-
-	os.Setenv("LINGTONG_API_TOKEN", "apk-env-test-token")
+	token := "apk-env-test-token"
+	var storedToken string
+	var verifiedToken string
+	overrideAuthDependencies(t, func(token string) error {
+		storedToken = token
+		return nil
+	}, nil, nil, func(host, token string) error {
+		assert.Equal(t, "https://test.example.com", host)
+		verifiedToken = token
+		return nil
+	})
+	t.Setenv("LINGTONG_API_TOKEN", token)
 
 	f := &cmdutil.Factory{
 		Config: &config.Config{
@@ -431,10 +432,10 @@ func TestNewCmdAuthLogin_TokenFromEnv_WithValue(t *testing.T) {
 	loginCmd, _, _ := cmd.Find([]string{"login"})
 	loginCmd.Flags().Set("from-env", "true")
 
-	// This will attempt to store the token, which may fail in test env
-	// but we can verify the token reading logic works
-	_ = loginCmd.RunE(loginCmd, []string{})
-	// We don't assert success/failure since StoreToken depends on OS keychain
+	err := loginCmd.RunE(loginCmd, []string{})
+	require.NoError(t, err)
+	assert.Equal(t, token, storedToken)
+	assert.Equal(t, token, verifiedToken)
 }
 
 // TestVerifyToken_ChineseErrorMessage tests Chinese error message detection
@@ -472,7 +473,7 @@ func TestNewCmdAuthLogin_LongDescription(t *testing.T) {
 	loginCmd, _, _ := cmd.Find([]string{"login"})
 	assert.Contains(t, loginCmd.Long, "--token")
 	assert.Contains(t, loginCmd.Long, "--from-env")
-	assert.Contains(t, loginCmd.Long, "apk-Gx6vDOEmALY7iJRcLZcD4nWF")
+	assert.Contains(t, loginCmd.Long, "apk-xxx")
 }
 
 // TestMaskToken_FuzzLike tests various token lengths
@@ -499,10 +500,10 @@ func TestMaskToken_FuzzLike(t *testing.T) {
 			if tt.length <= 12 {
 				assert.Equal(t, "****", result)
 			} else {
-				// Should show first 8 + "..." + last 4
-				expected := strings.Repeat("a", 8) + "..." + strings.Repeat("a", 4)
+				suffixLen := min(5, tt.length-10)
+				expected := strings.Repeat("a", 8) + "..." + strings.Repeat("a", suffixLen)
 				assert.Equal(t, expected, result)
-				assert.Len(t, result, 8+3+4)
+				assert.Len(t, result, 8+3+suffixLen)
 			}
 		})
 	}

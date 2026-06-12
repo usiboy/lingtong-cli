@@ -72,18 +72,8 @@ func TestNewCmdConfigInit_Structure(t *testing.T) {
 
 // TestNewCmdConfigInit_WithHostFlag tests init with --host flag
 func TestNewCmdConfigInit_WithHostFlag(t *testing.T) {
-	// Create a temporary directory for config
 	tempDir := t.TempDir()
-	
-	// Override config path for testing
-	originalConfigDir := os.Getenv("LINGTONG_CONFIG_DIR")
-	defer func() {
-		if originalConfigDir == "" {
-			os.Unsetenv("LINGTONG_CONFIG_DIR")
-		} else {
-			os.Setenv("LINGTONG_CONFIG_DIR", originalConfigDir)
-		}
-	}()
+	t.Setenv("HOME", tempDir)
 
 	cfg := &internalconfig.Config{
 		Host:  "",
@@ -101,25 +91,23 @@ func TestNewCmdConfigInit_WithHostFlag(t *testing.T) {
 	err := initCmd.Flags().Set("host", "https://test.example.com")
 	require.NoError(t, err)
 
-	// Temporarily override DefaultConfigDir for testing
-	// We need to test the command logic, but since config.Save() uses hardcoded paths,
-	// we'll test the flag parsing and basic logic
 	var buf bytes.Buffer
 	r, w, _ := os.Pipe()
 	oldStdout := os.Stdout
 	os.Stdout = w
 
-	// This will attempt to save to the default location
-	_ = initCmd.RunE(initCmd, []string{})
+	err = initCmd.RunE(initCmd, []string{})
 
 	w.Close()
 	os.Stdout = oldStdout
 	io.Copy(&buf, r)
 
+	require.NoError(t, err)
 	output := buf.String()
-	// Should attempt to save (may fail due to permissions or path)
-	// At minimum, verify no panic occurred
-	assert.True(t, len(output) > 0 || cfg.Host == "https://test.example.com" || true)
+	assert.Contains(t, output, "Configuration saved")
+	assert.Equal(t, "https://test.example.com", cfg.Host)
+	assert.Equal(t, "lingtong", cfg.Brand)
+	assert.FileExists(t, filepath.Join(tempDir, ".lingtong-cli", "config.yaml"))
 }
 
 // TestNewCmdConfigInit_NoHost tests init without providing host (interactive mode)
@@ -286,10 +274,10 @@ func TestDefaultConfigDir(t *testing.T) {
 	dir, err := internalconfig.DefaultConfigDir()
 	require.NoError(t, err)
 	assert.NotEmpty(t, dir)
-	
+
 	// Should contain .lingtong-cli
 	assert.Contains(t, dir, ".lingtong-cli")
-	
+
 	// Should be an absolute path
 	assert.True(t, filepath.IsAbs(dir))
 }
@@ -299,19 +287,21 @@ func TestDefaultConfigPath(t *testing.T) {
 	path, err := internalconfig.DefaultConfigPath()
 	require.NoError(t, err)
 	assert.NotEmpty(t, path)
-	
+
 	// Should end with config.yaml
 	assert.True(t, filepath.Base(path) == "config.yaml" || filepath.Base(path) == "config.yml")
-	
+
 	// Should be an absolute path
 	assert.True(t, filepath.IsAbs(path))
 }
 
 // TestLoad_NonExistentConfig tests loading when config file doesn't exist
 func TestLoad_NonExistentConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
 	cfg, err := internalconfig.Load()
 	require.NoError(t, err)
-	
+
 	// Should return empty config, not error
 	assert.Equal(t, "", cfg.Host)
 	assert.Equal(t, "", cfg.Brand)
@@ -322,21 +312,21 @@ func TestLoad_NonExistentConfig(t *testing.T) {
 func TestConfig_SaveAndLoad(t *testing.T) {
 	// This test uses the actual config save/load mechanism
 	// It will create a real config file
-	
+
 	originalConfig, _ := internalconfig.Load()
-	
+
 	// Create a config and save it
 	cfg := &internalconfig.Config{
 		Host:  "https://test-save-load.example.com",
 		Brand: "test-brand",
 	}
-	
+
 	// Save config (this will create actual files)
 	err := cfg.Save()
 	if err != nil {
 		t.Skipf("Skipping save/load test: %v (may not have permissions)", err)
 	}
-	
+
 	// Cleanup after test
 	defer func() {
 		if originalConfig != nil && originalConfig.Host != "" {
@@ -347,7 +337,7 @@ func TestConfig_SaveAndLoad(t *testing.T) {
 			os.Remove(path)
 		}
 	}()
-	
+
 	// Load and verify
 	loadedCfg, err := internalconfig.Load()
 	require.NoError(t, err)
@@ -380,7 +370,7 @@ func TestConfig_TokenNotSerialized(t *testing.T) {
 	// The Token field has yaml:"-" tag, so it won't be saved
 	// This is tested by the struct definition
 	assert.Equal(t, "apk-secret-token", cfg.Token)
-	
+
 	// Save would not include token due to yaml:"-" tag
 	// We verify the tag is present by checking struct behavior
 }
@@ -562,7 +552,7 @@ func TestConfig_StructTags(t *testing.T) {
 
 	// Token should be preserved in memory
 	assert.Equal(t, "secret-token", cfg.Token)
-	
+
 	// Host and Brand should be serializable
 	assert.Equal(t, "https://test.example.com", cfg.Host)
 	assert.Equal(t, "lingtong", cfg.Brand)

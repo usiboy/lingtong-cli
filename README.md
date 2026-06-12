@@ -21,6 +21,7 @@
 
 | 类别 | 能力 |
 |------|------|
+| 📦 应用管理 | 应用导出/导入/验证/脚手架生成/比较、场景管理 |
 | 🔌 连接器 | 查询连接器配置、元数据、类目、授权账户管理、账户验证 |
 | 🎬 场景 | 创建/查询/更新/删除集成场景 |
 | 🔄 工作流 | 创建/发布/执行工作流，查询执行日志 |
@@ -29,6 +30,26 @@
 | 🔧 通用 API | 调用任意绫通平台 API，覆盖所有端点 |
 
 ## 命令参考表
+
+### 应用管理 (App)
+
+| 命令 | 功能 | 必填参数 | 示例 |
+|------|------|---------|------|
+| `app export` | 导出应用配置为 JSON | --app-id, --output | `lingtong-cli app export --app-id 123 --output app.json` |
+| `app validate` | 验证应用 JSON 结构 | --file | `lingtong-cli app validate --file app.json` |
+| `app import` | 从 JSON 导入应用到平台 | --file | `lingtong-cli app import --file app.json` |
+| `app scaffold` | 生成最小应用脚手架 | --name, --source, --target | `lingtong-cli app scaffold --name test --source kmerp --target kingdee` |
+| `app scaffold` | 使用内置模板生成应用 | --name, --template | `lingtong-cli app scaffold --name test --template kuaimai-kingdee --output app.json` |
+| `app diff` | 比较两个应用配置差异 | --file-a, --file-b | `lingtong-cli app diff --file-a app1.json --file-b app2.json` |
+| `app scene list` | 列出应用中的场景 | --file | `lingtong-cli app scene list --file app.json` |
+| `app scene add` | 向应用添加场景 | --file, --name, --source, --target | `lingtong-cli app scene add --file app.json --name "同步" --source kmerp --target kingdee` |
+| `app scene remove` | 从应用删除场景 | --file, --name | `lingtong-cli app scene remove --file app.json --name "同步"` |
+
+#### 内置应用模板
+
+| 模板名称 | 场景数 | 描述 |
+|---------|-------|------|
+| `kuaimai-kingdee` | 7 | 快麦 ERP ↔ 金蝶云星辰集成（商品/订单/库存/退货同步） |
 
 ### 认证与配置 (Auth & Config)
 
@@ -232,10 +253,10 @@ lingtong-cli config init --host https://your-lingtong-host.com
 
 ```bash
 # 方式 1: 直接提供 Token
-lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+lingtong-cli auth login --token apk-xxx
 
 # 方式 2: 从环境变量读取
-export LINGTONG_API_TOKEN=apk-Gx6vDOEmALY7iJRcLZcD4nWF
+export LINGTONG_API_TOKEN=apk-xxx
 lingtong-cli auth login --from-env
 ```
 
@@ -255,6 +276,7 @@ lingtong-cli auth status
 | Skill | 说明 |
 |-------|------|
 | `lingtong-shared` | 配置、认证登录、身份切换、安全规则（所有其他 skill 自动加载） |
+| `lingtong-cli-app` | 应用管理：导出/导入/验证/脚手架生成/比较、场景管理（含 kuaimai-kingdee 模板） |
 | `lingtong-connector` | 连接器查询、类目查询、授权账户管理、账户验证、授权状态检查 |
 | `lingtong-scene` | 场景创建、查询、更新、删除 |
 | `lingtong-workflow` | 工作流创建、发布、执行、日志查询 |
@@ -271,7 +293,7 @@ lingtong-cli auth status
 
 ```bash
 # 方式 1: 直接提供 Token（推荐）
-lingtong-cli auth login --token apk-Gx6vDOEmALY7iJRcLZcD4nWF
+lingtong-cli auth login --token apk-xxx
 
 # 方式 2: 从环境变量读取
 export LINGTONG_API_TOKEN=apk-xxx
