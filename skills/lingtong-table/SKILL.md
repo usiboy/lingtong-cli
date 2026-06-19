@@ -1,6 +1,6 @@
 ---
 name: lingtong-table
-version: 2.7.0
+version: 2.8.0
 description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量更新、删除、Schema 管理。当用户需要操作绫通表格、查询数据、创建记录、批量更新、删除记录、理解表格结构时触发。关键词：table、表格、table data、query、create record、batch-update、delete、schema。"
 ---
 
@@ -111,6 +111,7 @@ lingtong-cli table data query --basic-data-id <id> \
 | `--page-size` | 每页条数（默认 20） |
 | `--order-by` | 排序字段（如 `created`、`updated`） |
 | `--order-asc` | 升序排列（默认降序） |
+| `--view-group-data` | 分组明细查询 JSON（从 `table view group-data` 响应获取） |
 
 **过滤模式说明**：
 
@@ -163,6 +164,58 @@ lingtong-cli table data query --basic-data-id 1553 \
 # 组合过滤 + 分页 + 排序
 lingtong-cli table data query --basic-data-id 1553 \
   --text '系统订单' --page 1 --page-size 50 --order-by created --order-asc
+
+# 分组明细查询（先通过 table view group-data 获取分组信息）
+lingtong-cli table data query --basic-data-id 1568 --view-id 621 \
+  --view-group-data '{"esKey":"data1568.1","key":"测试","leafId":"#data1568.1@测试"}'
+```
+
+### 视图管理
+
+```bash
+# 创建视图
+lingtong-cli table view save --schema-id <id> --name <name> [--type basic|pivot] [--group-column <fieldId>] [--group-asc]
+
+# 列出视图
+lingtong-cli table view list --schema-id <id>
+
+# 更新视图（含分组配置）
+lingtong-cli table view update --id <viewId> --schema-id <id> [--name <name>] [--group-column <fieldId>] [--group-asc]
+
+# 删除视图
+lingtong-cli table view delete --id <viewId>
+
+# 获取分组数据
+lingtong-cli table view group-data --view-id <viewId>
+
+# 获取统计指标
+lingtong-cli table view merits --schema-id <id> [--view-id <viewId>] [--text <string>]
+```
+
+**分组数据工作流**：
+1. `table view group-data --view-id 621` 获取第一层分组
+2. 从响应中获取 `esKey`、`key`、`leafId`
+3. `table data query --view-group-data '{"esKey":"...","key":"...","leafId":"..."}'` 获取分组内明细
+4. 分组最多支持三层嵌套
+
+**示例**:
+```bash
+# 创建带分组的视图
+lingtong-cli table view save --schema-id 2367 --name "按单据类型分组" --group-column 1
+
+# 查看视图列表
+lingtong-cli table view list --schema-id 2367
+
+# 获取分组数据
+lingtong-cli table view group-data --view-id 621
+
+# 获取统计指标
+lingtong-cli table view merits --schema-id 2367 --view-id 621
+
+# 查询某个分组下的明细
+lingtong-cli table data query --basic-data-id 1568 --view-id 621 \
+  --view-group-data '{"esKey":"data1568.1","key":"系统订单","leafId":"#data1568.1@系统订单"}' \
+  --page-size 10
 ```
 
 ### 创建记录

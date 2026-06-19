@@ -36,6 +36,7 @@ func NewCmdTable(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdTableCreate(f))
 	cmd.AddCommand(newCmdTableData(f))
 	cmd.AddCommand(newCmdTableSchema(f))
+	cmd.AddCommand(newCmdTableView(f))
 
 	cmd.PersistentFlags().String("format", "json", "Output format: json, table, pretty")
 	return cmd
@@ -302,7 +303,7 @@ func newCmdTableData(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdTableDataQuery(f *cmdutil.Factory) *cobra.Command {
 	var basicDataId int
-	var text, filter, idsStr, primaryKeyStr, orderBy string
+	var text, filter, idsStr, primaryKeyStr, orderBy, viewGroupDataStr string
 	var viewId int
 	var startUpdateTime, endUpdateTime int64
 	var page, pageSize int
@@ -408,6 +409,9 @@ EXAMPLES:
 				body["column"] = orderBy
 				body["asc"] = orderAsc
 			}
+			if viewGroupDataStr != "" {
+				body["viewGroupData"] = viewGroupDataStr
+			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
 			resp, err := c.Post("/basicdata/record/listNew", body)
@@ -437,6 +441,7 @@ EXAMPLES:
 	cmd.Flags().IntVar(&pageSize, "page-size", 20, "Page size (default 20)")
 	cmd.Flags().StringVar(&orderBy, "order-by", "", "Sort field (e.g. created, updated)")
 	cmd.Flags().BoolVar(&orderAsc, "order-asc", false, "Sort ascending (default: descending)")
+	cmd.Flags().StringVar(&viewGroupDataStr, "view-group-data", "", "Group data JSON for drill-down (e.g. {\"esKey\":\"data1568.1\",\"key\":\"测试\",\"leafId\":\"#data1568.1@测试\"})")
 	_ = cmd.MarkFlagRequired("basic-data-id")
 	return cmd
 }
@@ -915,6 +920,356 @@ EXAMPLES:
 	cmd.Flags().IntVar(&basicDataId, "basic-data-id", 0, "Table ID (required for auto-version)")
 	cmd.Flags().StringVar(&schema, "schema", "", "Complete schema JSON (optional)")
 	cmd.Flags().StringVar(&columnsSchema, "columns-schema", "", "Columns schema JSON array (optional, simpler mode)")
+	_ = cmd.MarkFlagRequired("schema-id")
+	return cmd
+}
+
+// ==================== table view ====================
+
+func newCmdTableView(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "view",
+		Short: "Manage table views",
+		Long:  "Table view CRUD operations, grouping configuration, and statistics.",
+	}
+
+	cmd.AddCommand(newCmdTableViewSave(f))
+	cmd.AddCommand(newCmdTableViewList(f))
+	cmd.AddCommand(newCmdTableViewUpdate(f))
+	cmd.AddCommand(newCmdTableViewDelete(f))
+	cmd.AddCommand(newCmdTableViewGroupData(f))
+	cmd.AddCommand(newCmdTableViewMerits(f))
+	return cmd
+}
+
+func newCmdTableViewSave(f *cmdutil.Factory) *cobra.Command {
+	var schemaId int
+	var name, viewType, groupColumn string
+	var sortId int
+	var groupAsc bool
+
+	cmd := &cobra.Command{
+		Use:   "save",
+		Short: "Create a new table view",
+		Long: `Create a new table view with optional grouping configuration.
+
+EXAMPLES:
+    # Create a basic view
+    lingtong-cli table view save --schema-id 2367 --name "视图1"
+
+    # Create a view with grouping
+    lingtong-cli table view save --schema-id 2367 --name "按单据类型分组" --group-column 1
+
+    # Create a pivot table view
+    lingtong-cli table view save --schema-id 2367 --name "透视表" --type pivot`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if schemaId == 0 {
+				return fmt.Errorf("--schema-id is required")
+			}
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"schemaId": schemaId,
+				"name":     name,
+				"type":     viewType,
+			}
+			if sortId > 0 {
+				body["sortId"] = sortId
+			}
+			if groupColumn != "" {
+				body["groupMetadata"] = map[string]interface{}{
+					"columnId": groupColumn,
+					"asc":      groupAsc,
+				}
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/tableView/save", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().StringVar(&name, "name", "", "View name (required)")
+	cmd.Flags().IntVar(&sortId, "sort-id", 0, "Sort order")
+	cmd.Flags().StringVar(&viewType, "type", "basic", "View type: basic or pivot")
+	cmd.Flags().StringVar(&groupColumn, "group-column", "", "Group by field ID")
+	cmd.Flags().BoolVar(&groupAsc, "group-asc", true, "Group sort direction (default: ascending)")
+	_ = cmd.MarkFlagRequired("schema-id")
+	_ = cmd.MarkFlagRequired("name")
+	return cmd
+}
+
+func newCmdTableViewList(f *cmdutil.Factory) *cobra.Command {
+	var schemaId int
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List table views",
+		Long: `List all views for a given schema.
+
+EXAMPLES:
+    lingtong-cli table view list --schema-id 2367`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if schemaId == 0 {
+				return fmt.Errorf("--schema-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Get("/tableView/list", map[string]interface{}{
+				"schemaId": schemaId,
+			})
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	_ = cmd.MarkFlagRequired("schema-id")
+	return cmd
+}
+
+func newCmdTableViewUpdate(f *cmdutil.Factory) *cobra.Command {
+	var id, schemaId int
+	var name, groupColumn string
+	var groupAsc bool
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a table view",
+		Long: `Update an existing table view, including grouping configuration.
+
+EXAMPLES:
+    # Update view name
+    lingtong-cli table view update --id 621 --schema-id 2367 --name "新名称"
+
+    # Set grouping on a view
+    lingtong-cli table view update --id 621 --schema-id 2367 --group-column 1 --group-asc
+
+    # Remove grouping (set group-column to empty)
+    lingtong-cli table view update --id 621 --schema-id 2367`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if id == 0 {
+				return fmt.Errorf("--id is required")
+			}
+			if schemaId == 0 {
+				return fmt.Errorf("--schema-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"id":       id,
+				"schemaId": schemaId,
+			}
+			if name != "" {
+				body["name"] = name
+			}
+			if groupColumn != "" {
+				body["groupMetadata"] = map[string]interface{}{
+					"columnId": groupColumn,
+					"asc":      groupAsc,
+				}
+			} else {
+				body["groupMetadata"] = nil
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/tableView/update", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&id, "id", 0, "View ID (required)")
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().StringVar(&name, "name", "", "New view name")
+	cmd.Flags().StringVar(&groupColumn, "group-column", "", "Group by field ID (empty to remove grouping)")
+	cmd.Flags().BoolVar(&groupAsc, "group-asc", true, "Group sort direction (default: ascending)")
+	_ = cmd.MarkFlagRequired("id")
+	_ = cmd.MarkFlagRequired("schema-id")
+	return cmd
+}
+
+func newCmdTableViewDelete(f *cmdutil.Factory) *cobra.Command {
+	var id int
+
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a table view",
+		Long: `Delete an existing table view.
+
+EXAMPLES:
+    lingtong-cli table view delete --id 621`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if id == 0 {
+				return fmt.Errorf("--id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Get("/tableView/delete", map[string]interface{}{
+				"id": id,
+			})
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&id, "id", 0, "View ID (required)")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newCmdTableViewGroupData(f *cmdutil.Factory) *cobra.Command {
+	var viewId int
+
+	cmd := &cobra.Command{
+		Use:   "group-data",
+		Short: "Get grouped data for a view",
+		Long: `Get hierarchical group data for a table view. Supports up to 3 levels of nesting.
+
+Use the group data response to drill down: pass the group's esKey/key/leafId
+as --view-group-data to 'table data query' to get records within a group.
+
+EXAMPLES:
+    # Get top-level groups
+    lingtong-cli table view group-data --view-id 621
+
+    # Get second-level groups (use values from first response)
+    lingtong-cli table view group-data --view-id 621`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if viewId == 0 {
+				return fmt.Errorf("--view-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Get("/tableView/getGroupData", map[string]interface{}{
+				"id": viewId,
+			})
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&viewId, "view-id", 0, "View ID (required)")
+	_ = cmd.MarkFlagRequired("view-id")
+	return cmd
+}
+
+func newCmdTableViewMerits(f *cmdutil.Factory) *cobra.Command {
+	var schemaId int
+	var viewId int
+	var text string
+
+	cmd := &cobra.Command{
+		Use:   "merits",
+		Short: "Get view statistics/merits",
+		Long: `Get statistical metrics for a table view (count, sum, max, min, avg, cardinality).
+
+EXAMPLES:
+    # Get merits for a view
+    lingtong-cli table view merits --schema-id 2367 --view-id 621
+
+    # Get merits with text filter
+    lingtong-cli table view merits --schema-id 2367 --view-id 621 --text "系统订单"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if schemaId == 0 {
+				return fmt.Errorf("--schema-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"schemaId": schemaId,
+			}
+			if viewId != 0 {
+				body["viewId"] = viewId
+			}
+			if text != "" {
+				body["text"] = text
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/tableView/getMerits", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().IntVar(&viewId, "view-id", 0, "View ID (optional)")
+	cmd.Flags().StringVar(&text, "text", "", "Text filter (optional)")
 	_ = cmd.MarkFlagRequired("schema-id")
 	return cmd
 }

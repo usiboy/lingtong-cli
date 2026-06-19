@@ -1303,3 +1303,251 @@ func TestNewCmdTableSchemaUpdate_AutoVersionRequiresBasicDataId(t *testing.T) {
 		t.Fatalf("expected basic-data-id required error, got %v", err)
 	}
 }
+
+// ==================== table view ====================
+
+func TestNewCmdTableViewSave_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/save" {
+			t.Errorf("expected proxy path /tableView/save, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if schemaId, ok := body["schemaId"]; !ok || schemaId != float64(2367) {
+			t.Errorf("expected schemaId=2367, got %v", body["schemaId"])
+		}
+		if name, ok := body["name"]; !ok || name != "测试视图" {
+			t.Errorf("expected name=测试视图, got %v", body["name"])
+		}
+		if gm, ok := body["groupMetadata"]; !ok {
+			t.Error("expected groupMetadata in body")
+		} else {
+			gmMap := gm.(map[string]interface{})
+			if gmMap["columnId"] != "1" {
+				t.Errorf("expected columnId=1, got %v", gmMap["columnId"])
+			}
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"id": 688, "name": "测试视图"},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "save", "--schema-id", "2367", "--name", "测试视图", "--group-column", "1"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableViewList_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/list" {
+			t.Errorf("expected proxy path /tableView/list, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "GET" {
+			t.Errorf("expected method GET, got %s", proxyReq.Method)
+		}
+		// GET params are in URL query, not in proxy body
+		query := r.URL.Query()
+		if got := query.Get("schemaId"); got != "2367" {
+			t.Errorf("expected schemaId=2367 in query, got %s", got)
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  []interface{}{map[string]interface{}{"id": 621, "name": "表格"}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "list", "--schema-id", "2367"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableViewUpdate_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/update" {
+			t.Errorf("expected proxy path /tableView/update, got %s", proxyReq.Path)
+		}
+		body := proxyReq.Body
+		if id, ok := body["id"]; !ok || id != float64(621) {
+			t.Errorf("expected id=621, got %v", body["id"])
+		}
+		if schemaId, ok := body["schemaId"]; !ok || schemaId != float64(2367) {
+			t.Errorf("expected schemaId=2367, got %v", body["schemaId"])
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"id": 621},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "update", "--id", "621", "--schema-id", "2367", "--name", "新名称"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableViewDelete_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/delete" {
+			t.Errorf("expected proxy path /tableView/delete, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "GET" {
+			t.Errorf("expected method GET, got %s", proxyReq.Method)
+		}
+		// GET params are in URL query, not in proxy body
+		query := r.URL.Query()
+		if got := query.Get("id"); got != "621" {
+			t.Errorf("expected id=621 in query, got %s", got)
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "delete", "--id", "621"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableViewGroupData_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/getGroupData" {
+			t.Errorf("expected proxy path /tableView/getGroupData, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "GET" {
+			t.Errorf("expected method GET, got %s", proxyReq.Method)
+		}
+		// GET params are in URL query, not in proxy body
+		query := r.URL.Query()
+		if got := query.Get("id"); got != "621" {
+			t.Errorf("expected id=621 in query, got %s", got)
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  []interface{}{map[string]interface{}{"esKey": "data1568.1", "key": "测试", "count": 1}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "group-data", "--view-id", "621"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableViewMerits_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/tableView/getMerits" {
+			t.Errorf("expected proxy path /tableView/getMerits, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if schemaId, ok := body["schemaId"]; !ok || schemaId != float64(2367) {
+			t.Errorf("expected schemaId=2367, got %v", body["schemaId"])
+		}
+		if viewId, ok := body["viewId"]; !ok || viewId != float64(621) {
+			t.Errorf("expected viewId=621, got %v", body["viewId"])
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  []interface{}{map[string]interface{}{"columnId": "0", "esMerit": "count", "value": "76159"}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"view", "merits", "--schema-id", "2367", "--view-id", "621"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableDataQuery_WithViewGroupData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/basicdata/record/listNew" {
+			t.Errorf("expected proxy path /basicdata/record/listNew, got %s", proxyReq.Path)
+		}
+		body := proxyReq.Body
+		if vgd, ok := body["viewGroupData"]; !ok {
+			t.Error("expected viewGroupData in body")
+		} else {
+			vgdStr := vgd.(string)
+			if !strings.Contains(vgdStr, "data1568.1") {
+				t.Errorf("expected viewGroupData to contain data1568.1, got %s", vgdStr)
+			}
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"data": []interface{}{}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{
+		"data", "query",
+		"--basic-data-id", "1568",
+		"--view-group-data", `{"esKey":"data1568.1","key":"测试","leafId":"#data1568.1@测试"}`,
+	})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
