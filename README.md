@@ -5,7 +5,7 @@
 
 绫通 (Lingtong) iPaaS 平台官方 CLI 工具，让人类和 AI Agent 都能在终端中操作绫通平台。覆盖连接器、场景、工作流、表格、模型等核心业务域，提供多组命令及 AI Agent Skills。
 
-[中文版](./README.zh.md) | [English](./README.md)
+当前文档：中文
 
 ## 为什么选 lingtong-cli？
 
@@ -21,9 +21,9 @@
 
 | 类别 | 能力 |
 |------|------|
-| 📦 应用管理 | 应用导出/导入/验证/脚手架生成/比较、场景管理 |
+| 📦 应用管理 | 应用列表/详情查询、导出/导入/验证/脚手架生成/比较、场景管理 |
 | 🔌 连接器 | 查询连接器配置、元数据、类目、授权账户管理、账户验证 |
-| 🎬 场景 | 创建/查询/更新/删除集成场景 |
+| 🎬 场景 | 列出、创建、查询集成场景 |
 | 🔄 工作流 | 创建/发布/执行工作流，查询执行日志 |
 | 📊 表格 | 表格 CRUD、数据查询、字段管理 |
 | 📐 模型 | 查询接口模型、领域模型、动态模型 Schema |
@@ -35,6 +35,8 @@
 
 | 命令 | 功能 | 必填参数 | 示例 |
 |------|------|---------|------|
+| `app list` | 列出平台应用 | 无 | `lingtong-cli app list --page-num 1 --page-size 40` |
+| `app get` | 查询应用详情 | --application-id 或 --id | `lingtong-cli app get --application-id 123` |
 | `app export` | 导出应用配置为 JSON | --app-id, --output | `lingtong-cli app export --app-id 123 --output app.json` |
 | `app validate` | 验证应用 JSON 结构 | --file | `lingtong-cli app validate --file app.json` |
 | `app import` | 从 JSON 导入应用到平台 | --file | `lingtong-cli app import --file app.json` |
@@ -56,9 +58,11 @@
 | 命令 | 功能 | 必填参数 | 示例 |
 |------|------|---------|------|
 | `config init` | 初始化 CLI 配置 | 无 | `lingtong-cli config init --host https://app.ltpass.com` |
-| `auth login` | 登录认证 | --token 或 --from-env | `lingtong-cli auth login --token apk-xxx` |
+| `auth login` | 登录认证 | --token 或 --from-env | `lingtong-cli auth login --token <api-token>` |
 | `auth logout` | 登出并清除凭证 | 无 | `lingtong-cli auth logout` |
 | `auth status` | 查看登录状态 | 无 | `lingtong-cli auth status` |
+
+> `app list/get/export/import` 和 `scene list/create/info` 需要先配置 Host。未配置时会提示 `no host configured. Run lingtong-cli config init --host <url> first`。
 
 ### 连接器 (Connector)
 
@@ -76,7 +80,7 @@
 
 | 命令 | 功能 | 必填参数 | 示例 |
 |------|------|---------|------|
-| `scene list` | 列出所有场景 | 无 | `lingtong-cli scene list --page 1 --page-size 20` |
+| `scene list` | 列出所有场景 | 无 | `lingtong-cli scene list --page 1 --page-size 20 --app-id 165` |
 | `scene create` | 创建场景 | --name | `lingtong-cli scene create --name "Order Sync" --description "同步订单"` |
 | `scene info` | 查询场景详情 | --scene-id | `lingtong-cli scene info --scene-id 123` |
 
@@ -253,10 +257,10 @@ lingtong-cli config init --host https://your-lingtong-host.com
 
 ```bash
 # 方式 1: 直接提供 Token
-lingtong-cli auth login --token apk-xxx
+lingtong-cli auth login --token <api-token>
 
 # 方式 2: 从环境变量读取
-export LINGTONG_API_TOKEN=apk-xxx
+export LINGTONG_API_TOKEN=<api-token>
 lingtong-cli auth login --from-env
 ```
 
@@ -266,7 +270,7 @@ lingtong-cli auth login --from-env
 lingtong-cli auth status
 # 输出:
 # Authenticated: Yes
-# Token: apk-Gx6v...4nWF
+# Token: <masked-token>
 # Host: https://app1.ltpass.com
 # Verifying token... Valid
 ```
@@ -278,7 +282,7 @@ lingtong-cli auth status
 | `lingtong-shared` | 配置、认证登录、身份切换、安全规则（所有其他 skill 自动加载） |
 | `lingtong-cli-app` | 应用管理：导出/导入/验证/脚手架生成/比较、场景管理（含 kuaimai-kingdee 模板） |
 | `lingtong-connector` | 连接器查询、类目查询、授权账户管理、账户验证、授权状态检查 |
-| `lingtong-scene` | 场景创建、查询、更新、删除 |
+| `lingtong-scene` | 场景列出、创建、查询 |
 | `lingtong-workflow` | 工作流创建、发布、执行、日志查询 |
 | `lingtong-table` | 表格 CRUD、数据查询、字段管理 |
 | `lingtong-model` | 接口模型、领域模型、动态模型 Schema 查询 |
@@ -293,10 +297,10 @@ lingtong-cli auth status
 
 ```bash
 # 方式 1: 直接提供 Token（推荐）
-lingtong-cli auth login --token apk-xxx
+lingtong-cli auth login --token <api-token>
 
 # 方式 2: 从环境变量读取
-export LINGTONG_API_TOKEN=apk-xxx
+export LINGTONG_API_TOKEN=<api-token>
 lingtong-cli auth login --from-env
 
 # 方式 3: 交互式输入
@@ -312,8 +316,8 @@ lingtong-cli auth logout
 **Token 安全**:
 - Token 存储在 OS Keychain（macOS Keychain / Windows Credential Manager / Linux Secret Service）
 - 不会明文存储在配置文件或终端输出中
-- `auth status` 命令会脱敏显示 Token（如 `apk-Gx6v...4nWF`）
-- 每次请求自动携带 `Authorization: Bearer {token}` Header
+- `auth status` 命令会脱敏显示 Token（如 `<masked-token>`）
+- 每次请求自动携带 `Authorization: Bearer <token>` Header
 
 ## 三层命令调用
 
@@ -325,7 +329,7 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 
 ```bash
 lingtong-cli connector +connector-info --connector kmerp
-lingtong-cli scene +scene-list
+lingtong-cli +scene-list
 lingtong-cli workflow +workflow-execute --workflow-id 123
 ```
 
@@ -506,6 +510,7 @@ lingtong-cli workflow dependency list --dsl-file workflow.json
 ```bash
 # 列出所有场景
 lingtong-cli scene list --page 1 --page-size 20
+lingtong-cli scene list --app-id 165 --page 1 --page-size 20
 
 # 创建场景
 lingtong-cli scene create --name "Order Sync" --description "Sync orders from ERP"

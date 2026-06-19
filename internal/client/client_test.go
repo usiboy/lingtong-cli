@@ -152,6 +152,48 @@ func TestDoProxyMode(t *testing.T) {
 	}
 }
 
+func TestDoProxyModeWithGETParamsOnProxyURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+		if r.URL.Path != "/gw/ai/proxy" {
+			t.Errorf("expected /gw/ai/proxy path, got %s", r.URL.Path)
+		}
+		if r.URL.RawQuery != "pageNum=1&pageSize=40" {
+			t.Errorf("expected query pageNum=1&pageSize=40, got %s", r.URL.RawQuery)
+		}
+
+		var payload map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("failed to decode proxy request: %v", err)
+		}
+		if payload["path"] != "/application/list" {
+			t.Errorf("expected proxy path /application/list, got %v", payload["path"])
+		}
+		if payload["method"] != "GET" {
+			t.Errorf("expected proxy method GET, got %v", payload["method"])
+		}
+		if _, ok := payload["params"]; ok {
+			t.Error("expected GET proxy body to omit top-level params")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "")
+	params := map[string]interface{}{"pageNum": 1, "pageSize": 40}
+	resp, err := client.Get("/application/list", params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(resp) != `{"data":[]}` {
+		t.Errorf("unexpected response: %s", string(resp))
+	}
+}
+
 // TestDoDirectModeWithParams tests query param handling outside proxy mode.
 func TestDoDirectModeWithParams(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

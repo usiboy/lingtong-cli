@@ -23,8 +23,11 @@ lingtong-cli config init --host https://your-lingtong-host.com
 # 交互式登录
 lingtong-cli auth login
 
-# 非交互式登录
-lingtong-cli auth login --username admin --password secret
+# 非交互式登录：从参数传入 Token
+lingtong-cli auth login --token <api-token>
+
+# 非交互式登录：从 LINGTONG_API_TOKEN 读取
+lingtong-cli auth login --from-env
 
 # 检查认证状态
 lingtong-cli auth status
@@ -37,7 +40,7 @@ lingtong-cli auth logout
 
 - Token 存储在 OS Keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service)
 - 不会明文存储在配置文件或终端输出中
-- 每次请求自动携带 Authorization: Bearer {token} Header
+- 每次请求自动携带 Authorization: Bearer <token> Header
 
 ## 安全规则
 
@@ -48,7 +51,7 @@ lingtong-cli auth logout
 
 ## 输出格式
 
-所有命令支持 `--format` 参数：
+支持结构化输出的命令通常提供 `--format` 参数，例如 `app`、`scene` 等命令：
 
 ```bash
 --format json      # Full JSON (default, AI Agent friendly)
@@ -56,4 +59,4 @@ lingtong-cli auth logout
 --format table     # Readable table output
 ```
 
-**规则**: AI Agent 调用时默认使用 `--format json`，无需解析文本输出。
+**规则**: AI Agent 调用支持 `--format` 的命令时优先使用 `--format json`，避免解析文本输出。

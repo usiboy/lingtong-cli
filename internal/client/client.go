@@ -63,7 +63,11 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 			"method": method,
 		}
 		if params != nil && len(params) > 0 {
-			proxyBody["params"] = params
+			if method == http.MethodGet {
+				url = appendQueryParams(url, params)
+			} else {
+				proxyBody["params"] = params
+			}
 		}
 		if body != nil {
 			proxyBody["body"] = body

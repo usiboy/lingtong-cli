@@ -2,7 +2,7 @@
 
 ## 概述
 
-`lingtong-cli app` 命令集用于管理绫通平台上的集成应用配置。支持应用的导出、导入、验证、脚手架生成、差异比较以及场景管理。
+`lingtong-cli app` 命令集用于管理绫通平台上的集成应用配置。支持应用列表查询、详情查询、导出、导入、验证、脚手架生成、差异比较以及场景管理。
 
 所有命令通过 `lingtong-cli app` 子命令访问，采用 JSON 格式作为应用配置的交换格式。
 
@@ -10,6 +10,8 @@
 
 | 命令 | 用途 |
 |------|------|
+| `app list` | 列出平台应用，支持分页和名称/ID/租户过滤 |
+| `app get` | 查询单个应用详情 |
 | `app export` | 从平台导出应用配置为 JSON 文件 |
 | `app validate` | 验证导出的 JSON 文件结构是否正确 |
 | `app import` | 将 JSON 配置导入到绫通平台 |
@@ -85,7 +87,68 @@ lingtong-cli app import --file app.json
 lingtong-cli app export --app-id 123 --output backup.json
 ```
 
+在线平台命令（`app list/get/export/import`）需要先配置 Host：
+
+```bash
+lingtong-cli config init --host https://your-lingtong-host.com
+```
+
+未配置时会返回：`no host configured. Run lingtong-cli config init --host <url> first`。`app import --dry-run` 只读取本地文件，不要求 Host。
+
 ## 命令参考
+
+### app list
+
+列出绫通平台应用，不修改平台状态。
+
+```bash
+lingtong-cli app list [--page-num <n>] [--page-size <n>] [--name <name>] [--app-id <id>] [--tenant-id <id>]
+```
+
+**参数：**
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--page-num` | 否 | 页码，默认 1 |
+| `--page-size` | 否 | 每页数量，默认 40 |
+| `--name` | 否 | 应用名称过滤 |
+| `--app-id` | 否 | 应用 ID 过滤 |
+| `--tenant-id` | 否 | 租户 ID 过滤 |
+
+**示例：**
+
+```bash
+lingtong-cli app list --page-num 1 --page-size 40
+lingtong-cli app list --name "Sales Sync" --format json
+```
+
+---
+
+### app get
+
+查询单个绫通平台应用详情，不修改平台状态。
+
+```bash
+lingtong-cli app get --application-id <id>
+# 或
+lingtong-cli app get --id <id>
+```
+
+**参数：**
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--application-id` | 条件 | 应用 ID；与 `--id` 二选一 |
+| `--id` | 条件 | `--application-id` 的别名 |
+
+**示例：**
+
+```bash
+lingtong-cli app get --application-id 123
+lingtong-cli app get --id 123 --format pretty
+```
+
+---
 
 ### app export
 
@@ -167,7 +230,7 @@ lingtong-cli app validate --file invalid.json
 # 输出:
 # validation failed:
 # appName: appName is required and must be a non-empty string
-# scenes[0].connectorSource.name: connector 'unknown-conn' not found in appConnectors
+# scenes[0].connectorSource.name: connector 'unknown-conn' not declared in appConnectors (preflight check)
 ```
 
 ---
@@ -496,6 +559,7 @@ lingtong-cli app import --file app.json
 | `invalid JSON` | 文件格式不正确 | 使用 JSON 校验工具检查文件 |
 | `validation failed` | 配置结构不符合要求 | 运行 `app validate` 查看详细错误 |
 | `scene not found` | 场景名称不匹配 | 使用 `scene list` 确认场景名称 |
+| `no host configured` | 尚未配置平台 Host | 运行 `lingtong-cli config init --host https://your-lingtong-host.com` |
 | `circular connector dependency` | 场景间形成循环依赖 | 检查场景的 source/target 是否形成环路 |
 | `duplicate scene name` | 存在同名场景 | 修改场景名称使其唯一 |
 | `payload size exceeds maximum` | JSON 文件超过 10MB | 拆分应用或减少配置数据 |

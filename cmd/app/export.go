@@ -33,6 +33,9 @@ EXAMPLES:
 			if output == "" {
 				return fmt.Errorf("--output is required")
 			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
 

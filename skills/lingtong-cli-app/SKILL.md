@@ -27,8 +27,8 @@ metadata:
 ## 前置要求
 
 - `lingtong-cli` 已安装并可用
-- 已通过 `lingtong-cli auth login` 完成认证
-- 环境变量 `LINGTONG_HOST` 和 `LINGTONG_TOKEN` 已配置
+- 已通过 `lingtong-cli config init --host https://your-lingtong-host.com` 配置平台 Host
+- 已通过 `lingtong-cli auth login` 完成认证，或将令牌放入 `LINGTONG_API_TOKEN` 后使用 `lingtong-cli auth login --from-env`
 
 ## 应用数据结构
 
@@ -62,6 +62,50 @@ metadata:
 ```
 
 ## 命令参考
+
+### lingtong-cli app list
+
+列出平台应用，不修改平台状态。
+
+```bash
+lingtong-cli app list [--page-num <n>] [--page-size <n>] [--name <name>] [--app-id <id>] [--tenant-id <id>]
+```
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--page-num` | 否 | 页码，默认 1 |
+| `--page-size` | 否 | 每页数量，默认 40 |
+| `--name` | 否 | 应用名称过滤 |
+| `--app-id` | 否 | 应用 ID 过滤 |
+| `--tenant-id` | 否 | 租户 ID 过滤 |
+
+示例：
+
+```bash
+lingtong-cli app list --page-num 1 --page-size 40
+lingtong-cli app list --name "Sales Sync" --format json
+```
+
+### lingtong-cli app get
+
+查询单个平台应用详情，不修改平台状态。
+
+```bash
+lingtong-cli app get --application-id <id>
+lingtong-cli app get --id <id>
+```
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--application-id` | 条件 | 应用 ID；与 `--id` 二选一 |
+| `--id` | 条件 | `--application-id` 的别名 |
+
+示例：
+
+```bash
+lingtong-cli app get --application-id 123
+lingtong-cli app get --id 123 --format pretty
+```
 
 ### lingtong-cli app export
 
@@ -254,7 +298,7 @@ lingtong-cli app scene remove --file <file> --name <name> [--output <file>]
 | 参数 | 必填 | 说明 |
 |------|------|------|
 | `--file` | 是 | 应用 JSON 文件路径 |
-| `--name` | 是 | 要移除的场景名称 |
+| `--name` | 是 | 要移除的场景名称（不区分大小写） |
 | `--output` | 否 | 输出文件路径，默认覆盖输入文件 |
 
 示例：
@@ -402,8 +446,8 @@ lingtong-cli app scaffold --name "my-kuaimai-kingdee" --template kuaimai-kingdee
 | basicDatas | 必须存在 | basicDatas is required |
 | scenes | 必须为非空数组 | scenes is required and must be a non-empty array |
 | scene.name | 每个场景必须有名称 | scene name is required |
-| scene.connectorSource | 源连接器必须在 appConnectors 中 | connector 'X' not found in appConnectors |
-| scene.connectorTarget | 目标连接器必须在 appConnectors 中 | connector 'X' not found in appConnectors |
+| scene.connectorSource | 源连接器必须在 appConnectors 中 | connector 'X' not declared in appConnectors (preflight check) |
+| scene.connectorTarget | 目标连接器必须在 appConnectors 中 | connector 'X' not declared in appConnectors (preflight check) |
 
 ## 故障排除
 
@@ -429,7 +473,7 @@ appConnectors: appConnectors is required and must be a non-empty array
 
 ```
 pre-flight validation failed:
-scenes[0].connectorSource.name: connector 'unknown' not found in appConnectors
+scenes[0].connectorSource.name: connector 'unknown' not declared in appConnectors (preflight check)
 ```
 
 场景引用的连接器不在应用的连接器列表中。确保 `appConnectors` 包含所有场景使用的连接器。
@@ -440,7 +484,7 @@ scenes[0].connectorSource.name: connector 'unknown' not found in appConnectors
 scene "Order Sync" not found in application
 ```
 
-场景名称区分大小写。使用 `scene list` 命令查看准确的场景名称。
+`app scene remove` 按名称大小写不敏感匹配；如仍找不到，请使用 `app scene list --file <file>` 确认场景名称是否存在。
 
 ### 认证失败
 
@@ -448,7 +492,15 @@ scene "Order Sync" not found in application
 failed to export application: unauthorized
 ```
 
-运行 `lingtong-cli auth login` 重新认证，或检查 `LINGTONG_TOKEN` 环境变量。
+运行 `lingtong-cli auth login` 重新认证，或检查 Keychain 中保存的 Token。非交互登录可先设置 `LINGTONG_API_TOKEN`，再运行 `lingtong-cli auth login --from-env`。
+
+### 未配置 Host
+
+```
+no host configured. Run `lingtong-cli config init --host <url>` first
+```
+
+运行 `lingtong-cli config init --host https://your-lingtong-host.com` 后重试。此错误会在 `app list/get/export/import` 等需要访问平台的命令中出现。
 
 ### 文件读写失败
 

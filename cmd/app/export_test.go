@@ -53,6 +53,17 @@ func TestNewCmdAppExport_MissingFlags(t *testing.T) {
 	}
 }
 
+func TestNewCmdAppExport_NoHostConfigured(t *testing.T) {
+	f := newTestFactory("")
+	cmd := newCmdAppExport(f)
+	cmd.SetArgs([]string{"--app-id", "42", "--output", "app.json"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	assertAppMissingHostError(t, err)
+}
+
 func TestNewCmdAppExport_DryRun(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/gw/ai/proxy" {

@@ -6,12 +6,15 @@ package scene
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/lingtong/cli/internal/client"
 	"github.com/lingtong/cli/internal/cmdutil"
 	"github.com/lingtong/cli/internal/output"
 	"github.com/spf13/cobra"
 )
+
+const missingHostConfigMessage = "no host configured. Run `lingtong-cli config init --host <url>` first"
 
 // NewCmdScene creates the scene command.
 func NewCmdScene(f *cmdutil.Factory) *cobra.Command {
@@ -31,6 +34,7 @@ func NewCmdScene(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdSceneList(f *cmdutil.Factory) *cobra.Command {
 	var page, pageSize int
+	var appID string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List integration scenes",
@@ -40,10 +44,26 @@ EXAMPLES:
     lingtong-cli scene list
     lingtong-cli scene list --page 1 --page-size 20`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.NewClient(f.Config.Host, f.Config.Token)
-			path := fmt.Sprintf("/gw/ai/scene/list?page=%d&pageSize=%d", page, pageSize)
+			if page < 1 {
+				return fmt.Errorf("--page must be at least 1")
+			}
+			if pageSize < 1 {
+				return fmt.Errorf("--page-size must be at least 1")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
 
-			resp, err := c.Get(path, nil)
+			params := map[string]interface{}{
+				"pageNum":  page,
+				"pageSize": pageSize,
+			}
+			if appID != "" {
+				params["appId"] = appID
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Get("/scene/list", params)
 			if err != nil {
 				return err
 			}
@@ -60,6 +80,7 @@ EXAMPLES:
 
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().IntVar(&pageSize, "page-size", 20, "Page size")
+	cmd.Flags().StringVar(&appID, "app-id", "", "Application ID filter")
 	return cmd
 }
 
@@ -76,6 +97,9 @@ EXAMPLES:
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
 			body := map[string]interface{}{
@@ -83,7 +107,7 @@ EXAMPLES:
 				"description": description,
 			}
 
-			resp, err := c.Post("/gw/ai/scene/create", body)
+			resp, err := c.Post("/scene/model/save", body)
 			if err != nil {
 				return err
 			}
@@ -113,11 +137,12 @@ func newCmdSceneInfo(f *cmdutil.Factory) *cobra.Command {
 			if sceneId == 0 {
 				return fmt.Errorf("--scene-id is required")
 			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
-			path := fmt.Sprintf("/gw/ai/scene/info?sceneId=%d", sceneId)
-
-			resp, err := c.Get(path, nil)
+			resp, err := c.Get("/scene/detail/get", map[string]interface{}{"sceneId": sceneId})
 			if err != nil {
 				return err
 			}
@@ -135,4 +160,11 @@ func newCmdSceneInfo(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().IntVar(&sceneId, "scene-id", 0, "Scene ID (required)")
 	_ = cmd.MarkFlagRequired("scene-id")
 	return cmd
+}
+
+func requireHostConfigured(host string) error {
+	if strings.TrimSpace(host) == "" {
+		return fmt.Errorf(missingHostConfigMessage)
+	}
+	return nil
 }

@@ -13,9 +13,11 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "app",
 		Short: "Manage Lingtong applications",
-		Long:  "Export and validate Lingtong application configurations.",
+		Long:  "List, get, export, import, validate, scaffold, diff, and scene Lingtong application configurations.",
 	}
 
+	cmd.AddCommand(newCmdAppList(f))
+	cmd.AddCommand(newCmdAppGet(f))
 	cmd.AddCommand(newCmdAppExport(f))
 	cmd.AddCommand(newCmdAppImport(f))
 	cmd.AddCommand(newCmdAppValidate(f))

@@ -10,12 +10,14 @@ description: "绫通场景管理：创建、查询、列出集成场景。当用
 
 本技能指导你如何通过 `lingtong-cli` 管理绫通平台的集成场景。
 
+平台场景命令需要先运行 `lingtong-cli config init --host https://your-lingtong-host.com` 配置 Host。未配置时会返回 `no host configured`，并提示运行 `lingtong-cli config init --host <url>`。
+
 ## 核心命令
 
 ### 列出场景
 
 ```bash
-lingtong-cli scene list [--page <n>] [--page-size <n>]
+lingtong-cli scene list [--page <n>] [--page-size <n>] [--app-id <id>]
 ```
 
 **示例**:
@@ -25,6 +27,9 @@ lingtong-cli scene list
 
 # 分页查询
 lingtong-cli scene list --page 1 --page-size 50
+
+# 按应用过滤
+lingtong-cli scene list --app-id 165 --page 1 --page-size 50
 ```
 
 ### 创建场景

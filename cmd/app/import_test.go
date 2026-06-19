@@ -470,6 +470,26 @@ func TestNewCmdAppImport_ValidFile(t *testing.T) {
 	}
 }
 
+func TestNewCmdAppImport_NoHostConfigured(t *testing.T) {
+	filePath := writeTempJSON(t, validAppExport())
+	f := &cmdutil.Factory{
+		Config: &config.Config{
+			Host:  "",
+			Token: "test-token",
+		},
+	}
+
+	cmd := newCmdAppImport(f)
+	cmd.SetArgs([]string{"--file", filePath})
+
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := cmd.Execute()
+	assertAppMissingHostError(t, err)
+}
+
 func TestImportResult_JSONUnmarshal(t *testing.T) {
 	tests := []struct {
 		name     string

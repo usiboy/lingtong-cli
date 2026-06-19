@@ -72,6 +72,9 @@ EXAMPLES:
 				fmt.Fprintf(cmd.OutOrStdout(), "[dry-run] Would POST: /application/import\n")
 				return nil
 			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
 
 			// Perform the actual import
 			c := client.NewClient(f.Config.Host, f.Config.Token)
