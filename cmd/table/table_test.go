@@ -1551,3 +1551,122 @@ func TestNewCmdTableDataQuery_WithViewGroupData(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// ==================== table pivot ====================
+
+func TestNewCmdTablePivotQuery_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/api/pivot-table/query" {
+			t.Errorf("expected proxy path /api/pivot-table/query, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if tableId, ok := body["tableId"]; !ok || tableId != "1568" {
+			t.Errorf("expected tableId=1568, got %v", body["tableId"])
+		}
+		if viewId, ok := body["viewId"]; !ok || viewId != "621" {
+			t.Errorf("expected viewId=621, got %v", body["viewId"])
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"data": map[string]interface{}{"columns": []interface{}{}, "rows": []interface{}{}}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"pivot", "query", "--table-id", "1568", "--view-id", "621"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTablePivotConfig_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/api/pivot-table/config" {
+			t.Errorf("expected proxy path /api/pivot-table/config, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if tableId, ok := body["tableId"]; !ok || tableId != "1568" {
+			t.Errorf("expected tableId=1568, got %v", body["tableId"])
+		}
+		if viewId, ok := body["viewId"]; !ok || viewId != "621" {
+			t.Errorf("expected viewId=621, got %v", body["viewId"])
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"dimensions": []interface{}{}, "measures": []interface{}{}},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"pivot", "config", "--table-id", "1568", "--view-id", "621"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTablePivotConfigSave_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		if proxyReq.Path != "/api/pivot-table/config/save" {
+			t.Errorf("expected proxy path /api/pivot-table/config/save, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if tableId, ok := body["tableId"]; !ok || tableId != "1568" {
+			t.Errorf("expected tableId=1568, got %v", body["tableId"])
+		}
+		if viewId, ok := body["viewId"]; !ok || viewId != "621" {
+			t.Errorf("expected viewId=621, got %v", body["viewId"])
+		}
+		if businessId, ok := body["businessId"]; !ok || businessId != float64(1568) {
+			t.Errorf("expected businessId=1568, got %v", body["businessId"])
+		}
+		if _, ok := body["config"]; !ok {
+			t.Error("expected config in body")
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"viewId": "621"},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{
+		"pivot", "config-save",
+		"--table-id", "1568",
+		"--view-id", "621",
+		"--business-id", "1568",
+		"--config", `{"dimensions":[],"measures":[],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"}}`,
+	})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

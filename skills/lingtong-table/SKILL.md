@@ -1,6 +1,6 @@
 ---
 name: lingtong-table
-version: 2.8.0
+version: 2.9.0
 description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量更新、删除、Schema 管理。当用户需要操作绫通表格、查询数据、创建记录、批量更新、删除记录、理解表格结构时触发。关键词：table、表格、table data、query、create record、batch-update、delete、schema。"
 ---
 
@@ -216,6 +216,67 @@ lingtong-cli table view merits --schema-id 2367 --view-id 621
 lingtong-cli table data query --basic-data-id 1568 --view-id 621 \
   --view-group-data '{"esKey":"data1568.1","key":"系统订单","leafId":"#data1568.1@系统订单"}' \
   --page-size 10
+```
+
+### 数据透视表
+
+```bash
+# 查询透视表数据
+lingtong-cli table pivot query --table-id <id> --view-id <id>
+
+# 获取透视表配置
+lingtong-cli table pivot config --table-id <id> --view-id <id>
+
+# 保存透视表配置
+lingtong-cli table pivot config-save --table-id <id> --view-id <id> \
+  --business-id <id> --business-type <n> --config <json>
+```
+
+**参数说明**：
+| 参数 | 说明 |
+|------|------|
+| `--table-id` | 表格 ID（必填） |
+| `--view-id` | 视图 ID（必填） |
+| `--business-id` | 业务 ID（必填） |
+| `--business-type` | 业务类型（默认 2） |
+| `--config` | 配置 JSON（必填） |
+
+**配置结构**：
+```json
+{
+  "dimensions": [
+    {"id": "dim1", "field": "data1568.1", "alias": "单据类型", "disabled": false}
+  ],
+  "measures": [
+    {"id": "init", "type": "count", "disabled": false}
+  ],
+  "advanced": {
+    "openDimensionSplit": false,
+    "openStatistic": true,
+    "displayMode": "normal"
+  },
+  "other": {
+    "maxRowsPerPage": 50,
+    "showSummary": true,
+    "otherExtractConfigVOList": [
+      {"id": "init", "type": "measure", "summaryType": "count", "disabled": false}
+    ]
+  }
+}
+```
+
+**示例**:
+```bash
+# 查询透视表
+lingtong-cli table pivot query --table-id 1568 --view-id 621
+
+# 获取透视表配置
+lingtong-cli table pivot config --table-id 1568 --view-id 621
+
+# 保存透视表配置（按单据类型分组，统计数量）
+lingtong-cli table pivot config-save --table-id 1568 --view-id 621 \
+  --business-id 1568 --business-type 2 \
+  --config '{"dimensions":[{"id":"dim1","field":"data1568.1","alias":"单据类型","disabled":false}],"measures":[{"id":"init","type":"count","disabled":false}],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"},"other":{"maxRowsPerPage":50,"showSummary":true,"otherExtractConfigVOList":[{"id":"init","type":"measure","summaryType":"count","disabled":false}]}}'
 ```
 
 ### 创建记录
@@ -599,3 +660,7 @@ lingtong-cli table create --app-id 165 --name "订单表" --source 1 --type 1 --
 6. **字段默认可见**：CLI 会自动设置 `show: true`，无需手动指定
 7. **公式字段需高性能模式**：使用 `type: "function"` 时必须 `--open-high-mode 1`
 8. **系统字段只读**：`createDate`/`updateDate` 设置 `dataDisabled: true`
+
+## 相关技能
+
+- [lingtong-pivot-table](../lingtong-pivot-table/SKILL.md) - 绫通表格数据透视表

@@ -37,6 +37,7 @@ func NewCmdTable(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdTableData(f))
 	cmd.AddCommand(newCmdTableSchema(f))
 	cmd.AddCommand(newCmdTableView(f))
+	cmd.AddCommand(newCmdTablePivot(f))
 
 	cmd.PersistentFlags().String("format", "json", "Output format: json, table, pretty")
 	return cmd
@@ -1271,5 +1272,191 @@ EXAMPLES:
 	cmd.Flags().IntVar(&viewId, "view-id", 0, "View ID (optional)")
 	cmd.Flags().StringVar(&text, "text", "", "Text filter (optional)")
 	_ = cmd.MarkFlagRequired("schema-id")
+	return cmd
+}
+
+// ==================== table pivot ====================
+
+func newCmdTablePivot(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pivot",
+		Short: "Manage pivot tables",
+		Long:  "Pivot table query and configuration management.",
+	}
+
+	cmd.AddCommand(newCmdTablePivotQuery(f))
+	cmd.AddCommand(newCmdTablePivotConfig(f))
+	cmd.AddCommand(newCmdTablePivotConfigSave(f))
+	return cmd
+}
+
+func newCmdTablePivotQuery(f *cmdutil.Factory) *cobra.Command {
+	var tableId, viewId string
+
+	cmd := &cobra.Command{
+		Use:   "query",
+		Short: "Query pivot table data",
+		Long: `Query pivot table data using ES aggregation API.
+
+EXAMPLES:
+    # Query pivot table
+    lingtong-cli table pivot query --table-id 1568 --view-id 621`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if tableId == "" {
+				return fmt.Errorf("--table-id is required")
+			}
+			if viewId == "" {
+				return fmt.Errorf("--view-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"tableId": tableId,
+				"viewId":  viewId,
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/api/pivot-table/query", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().StringVar(&tableId, "table-id", "", "Table ID (required)")
+	cmd.Flags().StringVar(&viewId, "view-id", "", "View ID (required)")
+	_ = cmd.MarkFlagRequired("table-id")
+	_ = cmd.MarkFlagRequired("view-id")
+	return cmd
+}
+
+func newCmdTablePivotConfig(f *cmdutil.Factory) *cobra.Command {
+	var tableId, viewId string
+
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Get pivot table configuration",
+		Long: `Get pivot table configuration including dimensions, measures, and advanced settings.
+
+EXAMPLES:
+    # Get pivot table config
+    lingtong-cli table pivot config --table-id 1568 --view-id 621`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if tableId == "" {
+				return fmt.Errorf("--table-id is required")
+			}
+			if viewId == "" {
+				return fmt.Errorf("--view-id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"tableId": tableId,
+				"viewId":  viewId,
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/api/pivot-table/config", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().StringVar(&tableId, "table-id", "", "Table ID (required)")
+	cmd.Flags().StringVar(&viewId, "view-id", "", "View ID (required)")
+	_ = cmd.MarkFlagRequired("table-id")
+	_ = cmd.MarkFlagRequired("view-id")
+	return cmd
+}
+
+func newCmdTablePivotConfigSave(f *cmdutil.Factory) *cobra.Command {
+	var tableId, viewId, configStr string
+	var businessId int
+	var businessType int
+
+	cmd := &cobra.Command{
+		Use:   "config-save",
+		Short: "Save pivot table configuration",
+		Long: `Save pivot table configuration including dimensions, measures, and advanced settings.
+
+EXAMPLES:
+    # Save pivot table config
+    lingtong-cli table pivot config-save --table-id 1568 --view-id 621 \
+      --business-id 1568 --business-type 2 \
+      --config '{"dimensions":[],"measures":[],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"}}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if tableId == "" {
+				return fmt.Errorf("--table-id is required")
+			}
+			if viewId == "" {
+				return fmt.Errorf("--view-id is required")
+			}
+			if configStr == "" {
+				return fmt.Errorf("--config is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			// Parse config JSON
+			var config interface{}
+			if err := json.Unmarshal([]byte(configStr), &config); err != nil {
+				return fmt.Errorf("invalid --config JSON: %w", err)
+			}
+
+			body := map[string]interface{}{
+				"tableId":      tableId,
+				"viewId":       viewId,
+				"businessId":   businessId,
+				"businessType": businessType,
+				"config":       config,
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/api/pivot-table/config/save", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().StringVar(&tableId, "table-id", "", "Table ID (required)")
+	cmd.Flags().StringVar(&viewId, "view-id", "", "View ID (required)")
+	cmd.Flags().IntVar(&businessId, "business-id", 0, "Business ID (required)")
+	cmd.Flags().IntVar(&businessType, "business-type", 2, "Business type (default: 2)")
+	cmd.Flags().StringVar(&configStr, "config", "", "Config JSON (required)")
+	_ = cmd.MarkFlagRequired("table-id")
+	_ = cmd.MarkFlagRequired("view-id")
+	_ = cmd.MarkFlagRequired("business-id")
+	_ = cmd.MarkFlagRequired("config")
 	return cmd
 }
