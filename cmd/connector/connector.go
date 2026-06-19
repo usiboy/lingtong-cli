@@ -6,6 +6,7 @@ package connector
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/lingtong/cli/internal/client"
 	"github.com/lingtong/cli/internal/cmdutil"
@@ -162,41 +163,114 @@ func newCmdConnectorAccount(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdConnectorAccountList(f *cmdutil.Factory) *cobra.Command {
-	var connector, env string
+	var connector, env, name string
+	var page, pageSize int
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List connector accounts",
-		Long: `List all configured authentication accounts for a connector.
+		Long: `List all configured authentication accounts.
+
+When no --connector is specified, lists all accounts across all connectors.
+Use --connector to filter by a specific connector type.
+Use --name to search by account name (client-side filtering).
 
 EXAMPLES:
+    # List all accounts
+    lingtong-cli connector account list
+
+    # List accounts for a specific connector
     lingtong-cli connector account list --connector kmerp
-    lingtong-cli connector account list --connector kmerp --env prod`,
+
+    # List accounts with environment filter
+    lingtong-cli connector account list --connector kmerp --env test
+
+    # Search by name
+    lingtong-cli connector account list --name "广州"
+
+    # Paginate results
+    lingtong-cli connector account list --page 2 --page-size 20`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+
+			var resp []byte
+			var err error
+
 			if connector == "" {
-				return fmt.Errorf("--connector is required")
+				// List all accounts (simplified version, sorted by name)
+				resp, err = c.Get("/gw/account/listAll2", nil)
+			} else {
+				// List accounts for specific connector
+				path := fmt.Sprintf("/gw/account/connector/list?connector=%s", connector)
+				if env != "" {
+					path += fmt.Sprintf("&env=%s", env)
+				}
+				resp, err = c.Get(path, nil)
 			}
 
-			c := client.NewClient(f.Config.Host, f.Config.Token)
-			path := fmt.Sprintf("/gw/account/connector/list?connector=%s&env=%s", connector, env)
-
-			resp, err := c.Get(path, nil)
 			if err != nil {
 				return fmt.Errorf("failed to list connector accounts: %w", err)
 			}
 
+			// Parse response
+			var result map[string]interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return fmt.Errorf("failed to parse response: %w", err)
+			}
+
+			// Apply client-side name filter if specified
+			if name != "" {
+				if data, ok := result["result"].([]interface{}); ok {
+					var filtered []interface{}
+					for _, item := range data {
+						if account, ok := item.(map[string]interface{}); ok {
+							if accountName, ok := account["name"].(string); ok {
+								if strings.Contains(strings.ToLower(accountName), strings.ToLower(name)) {
+									filtered = append(filtered, item)
+								}
+							}
+						}
+					}
+					result["result"] = filtered
+				}
+			}
+
+			// Apply pagination if specified
+			if page > 0 || pageSize > 0 {
+				if data, ok := result["result"].([]interface{}); ok {
+					if page <= 0 {
+						page = 1
+					}
+					if pageSize <= 0 {
+						pageSize = 20
+					}
+					start := (page - 1) * pageSize
+					end := start + pageSize
+					if start > len(data) {
+						start = len(data)
+					}
+					if end > len(data) {
+						end = len(data)
+					}
+					result["result"] = data[start:end]
+					result["pagination"] = map[string]interface{}{
+						"page":     page,
+						"pageSize": pageSize,
+						"total":    len(data),
+					}
+				}
+			}
+
 			format := output.Format(cmd.Flag("format").Value.String())
 			w := output.NewWriter(f.IOStreams, format)
-			var data interface{}
-			if err := json.Unmarshal(resp, &data); err != nil {
-				return err
-			}
-			return w.Write(data)
+			return w.Write(result)
 		},
 	}
 
-	cmd.Flags().StringVar(&connector, "connector", "", "Connector identifier (required)")
+	cmd.Flags().StringVar(&connector, "connector", "", "Connector identifier (optional)")
 	cmd.Flags().StringVar(&env, "env", "", "Environment filter (test/prod)")
-	_ = cmd.MarkFlagRequired("connector")
+	cmd.Flags().StringVar(&name, "name", "", "Search by account name")
+	cmd.Flags().IntVar(&page, "page", 0, "Page number (1-based)")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Page size")
 	return cmd
 }
 

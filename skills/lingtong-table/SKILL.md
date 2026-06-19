@@ -1,6 +1,6 @@
 ---
 name: lingtong-table
-version: 2.9.0
+version: 2.10.0
 description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量更新、删除、Schema 管理。当用户需要操作绫通表格、查询数据、创建记录、批量更新、删除记录、理解表格结构时触发。关键词：table、表格、table data、query、create record、batch-update、delete、schema。"
 ---
 
@@ -82,6 +82,43 @@ lingtong-cli table create --app-id 165 --name "产品表" --source 1 --type 1 --
     "columnsSchema": [...]
   }
 }
+```
+
+### 更新表格配置
+
+```bash
+lingtong-cli table update --id <id> \
+  [--name <name>] \
+  [--open-high-mode <0|1>] \
+  [--open-connector <0|1>]
+```
+
+**参数说明**：
+| 参数 | 说明 |
+|------|------|
+| `--id` | 表格 ID（必填） |
+| `--name` | 新表格名称 |
+| `--open-high-mode` | 高性能模式：0-关闭，1-开启 |
+| `--open-connector` | 连接器同步：0-关闭，1-开启 |
+
+**说明**：
+- 命令会自动获取当前表格配置，仅更新指定的字段
+- 开启连接器后，表格可在场景和工作流中作为连接器使用
+- 高性能模式会限制表格 Schema 类型，提升查询性能
+
+**示例**:
+```bash
+# 开启连接器
+lingtong-cli table update --id 1568 --open-connector 1
+
+# 开启高性能模式
+lingtong-cli table update --id 1568 --open-high-mode 1
+
+# 更新表格名称
+lingtong-cli table update --id 1568 --name "新名称"
+
+# 同时开启连接器和高性能模式
+lingtong-cli table update --id 1568 --open-connector 1 --open-high-mode 1
 ```
 
 ### 查询表格数据

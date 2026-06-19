@@ -34,6 +34,7 @@ func NewCmdTable(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.AddCommand(newCmdTableList(f))
 	cmd.AddCommand(newCmdTableCreate(f))
+	cmd.AddCommand(newCmdTableUpdate(f))
 	cmd.AddCommand(newCmdTableData(f))
 	cmd.AddCommand(newCmdTableSchema(f))
 	cmd.AddCommand(newCmdTableView(f))
@@ -284,6 +285,118 @@ EXAMPLES:
 	cmd.Flags().StringVar(&columnsSchema, "columns-schema", "", "Schema columns JSON array (optional)")
 	_ = cmd.MarkFlagRequired("app-id")
 	_ = cmd.MarkFlagRequired("name")
+	return cmd
+}
+
+// ==================== table update ====================
+
+func newCmdTableUpdate(f *cmdutil.Factory) *cobra.Command {
+	var id int
+	var name string
+	var openHighMode int
+	var openConnector int
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update table configuration",
+		Long: `Update table configuration including name, high performance mode, and connector settings.
+
+Uses POST /basicdata/update endpoint. The command first fetches current table info
+to preserve existing settings, then applies the requested changes.
+
+EXAMPLES:
+    # Enable connector for a table
+    lingtong-cli table update --id 1568 --open-connector 1
+
+    # Enable high performance mode
+    lingtong-cli table update --id 1568 --open-high-mode 1
+
+    # Update table name
+    lingtong-cli table update --id 1568 --name "New Table Name"
+
+    # Enable both connector and high performance mode
+    lingtong-cli table update --id 1568 --open-connector 1 --open-high-mode 1`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if id == 0 {
+				return fmt.Errorf("--id is required")
+			}
+			if err := requireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+
+			// Step 1: Fetch current table info to get required fields
+			getResp, err := c.Get("/basicdata/get", map[string]interface{}{
+				"id": id,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to fetch table info: %w", err)
+			}
+
+			var getResult map[string]interface{}
+			if err := json.Unmarshal(getResp, &getResult); err != nil {
+				return fmt.Errorf("failed to parse table info: %w", err)
+			}
+
+			if success, ok := getResult["success"].(bool); ok && !success {
+				msg := ""
+				if m, ok := getResult["msg"].(string); ok {
+					msg = m
+				}
+				return fmt.Errorf("failed to fetch table info: %s", msg)
+			}
+
+			current, ok := getResult["result"].(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("unexpected table info format")
+			}
+
+			// Build update body with current values as defaults
+			body := map[string]interface{}{
+				"id":    id,
+				"appId": current["appId"],
+				"name":  current["name"],
+				"source": current["source"],
+				"type":  current["type"],
+			}
+
+			// Apply overrides
+			if name != "" {
+				body["name"] = name
+			}
+			if cmd.Flags().Changed("open-high-mode") {
+				body["openHighMode"] = openHighMode
+			} else if v, ok := current["openHighMode"]; ok {
+				body["openHighMode"] = v
+			}
+			if cmd.Flags().Changed("open-connector") {
+				body["openConnector"] = openConnector
+			} else if v, ok := current["openConnector"]; ok {
+				body["openConnector"] = v
+			}
+
+			// Step 2: Send update request
+			resp, err := c.Post("/basicdata/update", body)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := output.NewWriter(f.IOStreams, format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return err
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&id, "id", 0, "Table ID (required)")
+	cmd.Flags().StringVar(&name, "name", "", "New table name")
+	cmd.Flags().IntVar(&openHighMode, "open-high-mode", 0, "High performance mode: 0-off, 1-on")
+	cmd.Flags().IntVar(&openConnector, "open-connector", 0, "Connector sync: 0-off, 1-on")
+	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }
 

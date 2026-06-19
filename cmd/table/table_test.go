@@ -1670,3 +1670,72 @@ func TestNewCmdTablePivotConfigSave_ProxyPath(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// ==================== table update ====================
+
+func TestNewCmdTableUpdate_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyReq := decodeProxyRequest(t, r)
+		// First request: GET /basicdata/get
+		if proxyReq.Path == "/basicdata/get" {
+			writeProxyResponse(t, w, map[string]interface{}{
+				"success": true,
+				"result": map[string]interface{}{
+					"id":             float64(1568),
+					"appId":          float64(165),
+					"name":           "快麦出入库记录",
+					"source":         float64(1),
+					"type":           float64(1),
+					"openHighMode":   float64(1),
+					"openConnector":  float64(1),
+				},
+			})
+			return
+		}
+		// Second request: POST /basicdata/update
+		if proxyReq.Path != "/basicdata/update" {
+			t.Errorf("expected proxy path /basicdata/update, got %s", proxyReq.Path)
+		}
+		if proxyReq.Method != "POST" {
+			t.Errorf("expected method POST, got %s", proxyReq.Method)
+		}
+		body := proxyReq.Body
+		if id, ok := body["id"]; !ok || id != float64(1568) {
+			t.Errorf("expected id=1568, got %v", body["id"])
+		}
+		if openConnector, ok := body["openConnector"]; !ok || openConnector != float64(1) {
+			t.Errorf("expected openConnector=1, got %v", body["openConnector"])
+		}
+
+		writeProxyResponse(t, w, map[string]interface{}{
+			"success": true,
+			"result":  map[string]interface{}{"id": float64(1568)},
+		})
+	}))
+	defer server.Close()
+
+	f, _, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"update", "--id", "1568", "--open-connector", "1"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewCmdTableUpdate_MissingID(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"update"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for missing --id")
+	}
+	if !strings.Contains(err.Error(), "id") {
+		t.Fatalf("expected id required error, got %v", err)
+	}
+}
