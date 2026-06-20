@@ -90,6 +90,12 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.SilenceErrors = true
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		cmd.SilenceUsage = true
+
+		// Only override OmitNull if the flag was explicitly set by the user
+		if cmd.Flags().Changed("omit-null") {
+			omitNull, _ := cmd.Flags().GetBool("omit-null")
+			f.Config.OmitNull = omitNull
+		}
 	}
 
 	// Register subcommands
@@ -105,6 +111,9 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 
 	// Register shortcuts
 	shortcuts.RegisterShortcuts(rootCmd, f)
+
+	// Add global flags
+	rootCmd.PersistentFlags().Bool("omit-null", true, "Omit null fields in JSON output (default: true)")
 
 	return rootCmd
 }

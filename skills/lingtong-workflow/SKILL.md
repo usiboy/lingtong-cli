@@ -1,6 +1,6 @@
 ---
 name: lingtong-workflow
-version: 2.0.0
+version: 2.1.0
 description: "绫通工作流全生命周期管理:设计、创建、验证、测试、发布、监控、文档生成。当用户需要编排业务流程、管理工作流DSL、执行工作流测试、生成文档时触发。关键词:workflow、工作流、DSL、模板、验证、测试、文档。"
 ---
 
@@ -306,6 +306,11 @@ lingtong-cli workflow publish --workflow-id 955 --version "v1.0.0" --memo "初�
 
 # 查看版本历史
 lingtong-cli workflow versions --workflow-id 955
+
+# 查看版本历史（表格格式）
+lingtong-cli workflow versions --workflow-id 955 --format table
+
+# 注意: 返回数据结构为 result.snapshotList（非 result.data.list）
 
 # 回滚到指定版本
 lingtong-cli workflow version rollback --workflow-id 955 --version "v1.0.0"

@@ -27,6 +27,10 @@ func NewCmdConnector(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdConnectorList(f))
 	cmd.AddCommand(newCmdConnectorAccount(f))
 	cmd.AddCommand(newCmdConnectorCheckAuth(f))
+	cmd.AddCommand(newCmdConnectorInvoke(f))
+	cmd.AddCommand(newCmdConnectorMethods(f))
+	cmd.AddCommand(newCmdConnectorSchema(f))
+	cmd.AddCommand(newCmdConnectorCache(f))
 
 	cmd.PersistentFlags().String("format", "json", "Output format: json, table, pretty")
 	return cmd
@@ -59,7 +63,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -98,7 +102,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -135,7 +139,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -261,7 +265,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(result)
 		},
 	}
@@ -326,7 +330,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(verifyResult)
 		},
 	}
@@ -418,7 +422,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(result)
 		},
 	}
@@ -553,7 +557,7 @@ EXAMPLES:
 			}
 
 			// Display results
-			w := output.NewWriter(f.IOStreams, output.Format(cmd.Flag("format").Value.String()))
+			w := f.NewWriter(output.Format(cmd.Flag("format").Value.String()))
 			
 			if allAuthorized {
 				fmt.Fprintf(f.IOStreams.Out, "✓ All connectors are properly authorized\n\n")

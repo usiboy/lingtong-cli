@@ -40,6 +40,13 @@ func NewClient(host, token string) *Client {
 	}
 }
 
+// NewClientWithTimeout creates a new API client with a custom timeout.
+func NewClientWithTimeout(host, token string, timeout time.Duration) *Client {
+	c := NewClient(host, token)
+	c.httpClient.Timeout = timeout
+	return c
+}
+
 // NewClientWithProxy creates a new API client with proxy mode enabled.
 func NewClientWithProxy(host, token string) *Client {
 	return NewClient(host, token)

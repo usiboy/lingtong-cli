@@ -1038,7 +1038,7 @@ func TestNewCmdWorkflowVersionRollback_DryRun(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"result": map[string]interface{}{
-				"list": []map[string]interface{}{
+				"snapshotList": []map[string]interface{}{
 					{"id": 1, "version": "v1.0.0"},
 				},
 			},

@@ -55,7 +55,7 @@ EXAMPLES:
 				return err
 			}
 
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err

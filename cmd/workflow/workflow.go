@@ -81,7 +81,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -128,8 +128,11 @@ EXAMPLES:
 			c := client.NewClient(f.Config.Host, f.Config.Token)
 
 			// Step 1: Create execution task
-			createPath := fmt.Sprintf("/gw/workflow/debug/create?workflowId=%d", workflowId)
-			createResp, err := c.Post(createPath, nil)
+			createPath := "/gw/workflow/debug/create"
+			createParams := map[string]interface{}{
+				"workflowId": workflowId,
+			}
+			createResp, err := c.Do("POST", createPath, createParams, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create execution task: %w", err)
 			}
@@ -151,7 +154,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 
 			// If not waiting, just return the receiptId
 			if !wait {
@@ -225,7 +228,7 @@ func newCmdWorkflowInfo(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -280,7 +283,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -336,7 +339,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -385,7 +388,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 
 			// Extract list data for any format
 			var result map[string]interface{}
@@ -393,9 +396,9 @@ EXAMPLES:
 				return err
 			}
 
-			// If we have result.data.list, try to format nicely
+			// If we have result.snapshotList, try to format nicely
 			if data, ok := result["result"].(map[string]interface{}); ok {
-				if list, ok := data["list"].([]interface{}); ok && len(list) > 0 {
+				if list, ok := data["snapshotList"].([]interface{}); ok && len(list) > 0 {
 					if format == output.FormatTable || format == output.FormatPretty {
 						fmt.Fprintf(f.IOStreams.Out, "%-15s %-30s %-25s %-10s\n", "VERSION", "MEMO", "PUBLISH_TIME", "STATUS")
 						fmt.Fprintf(f.IOStreams.Out, "%-15s %-30s %-25s %-10s\n", "-------", "----", "------------", "------")
@@ -488,7 +491,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -577,7 +580,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -663,7 +666,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -723,7 +726,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -766,7 +769,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -808,7 +811,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -951,7 +954,7 @@ func newCmdWorkflowTemplateList(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			templates := getTemplateList()
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(templates)
 		},
 	}
@@ -976,7 +979,7 @@ func newCmdWorkflowTemplateShow(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("invalid template DSL: %w", err)
 			}
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(template)
 		},
 	}
@@ -1064,7 +1067,7 @@ func newCmdWorkflowValidate(f *cmdutil.Factory) *cobra.Command {
 			}
 			result := validateDSL(dsl, strict)
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(result)
 		},
 	}
@@ -1203,7 +1206,7 @@ func newCmdWorkflowVersionRollback(f *cmdutil.Factory) *cobra.Command {
 			}
 			var snapshotId interface{}
 			if res, ok := result["result"].(map[string]interface{}); ok {
-				if list, ok := res["list"].([]interface{}); ok {
+				if list, ok := res["snapshotList"].([]interface{}); ok {
 					for _, item := range list {
 						if ver, ok := item.(map[string]interface{}); ok {
 							if ver["version"] == version {
@@ -1218,7 +1221,7 @@ func newCmdWorkflowVersionRollback(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("version '%s' not found", version)
 			}
 			if dryRun {
-				return output.NewWriter(f.IOStreams, output.Format(cmd.Flag("format").Value.String())).Write(map[string]interface{}{
+				return f.NewWriter(output.Format(cmd.Flag("format").Value.String())).Write(map[string]interface{}{
 					"dryRun": true, "workflowId": workflowId, "targetVersion": version, "snapshotId": snapshotId,
 				})
 			}
@@ -1241,7 +1244,7 @@ func newCmdWorkflowVersionRollback(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(rollbackResult)
 		},
 	}
@@ -1294,8 +1297,11 @@ func newCmdWorkflowTestRun(f *cmdutil.Factory) *cobra.Command {
 					testData[k] = v
 				}
 			}
-			createPath := fmt.Sprintf("/gw/workflow/debug/create?workflowId=%d", workflowId)
-			createResp, err := c.Post(createPath, nil)
+			createPath := "/gw/workflow/debug/create"
+			createParams := map[string]interface{}{
+				"workflowId": workflowId,
+			}
+			createResp, err := c.Do("POST", createPath, createParams, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create debug task: %w", err)
 			}
@@ -1333,7 +1339,7 @@ func newCmdWorkflowTestRun(f *cmdutil.Factory) *cobra.Command {
 				fmt.Fprintln(f.IOStreams.Out, "✓ Test completed")
 			}
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(testReport)
 		},
 	}
@@ -1515,7 +1521,7 @@ func newCmdWorkflowDependencyList(f *cmdutil.Factory) *cobra.Command {
 			}
 			deps := analyzeDeps(dsl)
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(deps)
 		},
 	}

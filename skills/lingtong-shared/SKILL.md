@@ -49,6 +49,49 @@ lingtong-cli auth logout
 - 用 `--dry-run` 预览危险请求
 - Token 过期时自动提示重新登录
 
+## 全局配置选项
+
+### 省略 Null 字段 (--omit-null)
+
+默认情况下，CLI 会在 JSON 输出中省略值为 `null` 的字段，使输出更简洁。
+
+```bash
+# 默认行为：省略 null 字段（推荐）
+lingtong-cli connector account list
+
+# 显示所有字段（包括 null）
+lingtong-cli connector account list --omit-null=false
+```
+
+**配置示例**：
+
+默认输出（omit-null=true）：
+```json
+{
+  "id": 250,
+  "name": "测试账号",
+  "connector": "kmerp",
+  "env": "test"
+}
+```
+
+完整输出（omit-null=false）：
+```json
+{
+  "id": 250,
+  "name": "测试账号",
+  "connector": "kmerp",
+  "connectorTitle": null,
+  "env": "test",
+  "envs": null,
+  "icon": null
+}
+```
+
+**适用场景**：
+- 默认模式适合日常使用和 AI Agent 处理
+- 完整模式适合调试和查看完整数据结构
+
 ## 输出格式
 
 支持结构化输出的命令通常提供 `--format` 参数，例如 `app`、`scene` 等命令：

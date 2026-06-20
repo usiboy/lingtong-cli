@@ -69,7 +69,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -113,7 +113,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -148,7 +148,7 @@ func newCmdSceneInfo(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err

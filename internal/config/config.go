@@ -16,7 +16,11 @@ type Config struct {
 	Host     string `yaml:"host"`
 	Token    string `yaml:"-"` // Never stored in config file, use keychain
 	Brand    string `yaml:"brand"` // "lingtong" or custom
+	OmitNull bool   `yaml:"omitNull"` // Omit null fields in JSON output (default: true)
 }
+
+// DefaultHost is the default API host when none is configured.
+const DefaultHost = "https://app1.ltpass.com"
 
 // DefaultConfigDir returns the default config directory path.
 func DefaultConfigDir() (string, error) {
@@ -38,26 +42,31 @@ func DefaultConfigPath() (string, error) {
 
 // Load loads configuration from file.
 func Load() (*Config, error) {
+	// Default: omit null fields in JSON output, use default host
+	cfg := &Config{
+		Host:     DefaultHost,
+		OmitNull: true,
+	}
+
 	path, err := DefaultConfigPath()
 	if err != nil {
-		return &Config{}, nil // Return empty config if path fails
+		return cfg, nil // Return default config if path fails
 	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &Config{}, nil // Config file doesn't exist yet
+		return cfg, nil // Config file doesn't exist yet, use defaults
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return &Config{}, fmt.Errorf("failed to read config file: %w", err)
+		return cfg, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return &Config{}, fmt.Errorf("failed to parse config file: %w", err)
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return cfg, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 // Save saves configuration to file.

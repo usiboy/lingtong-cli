@@ -71,7 +71,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -271,7 +271,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(basicDataResult)
 		},
 	}
@@ -383,7 +383,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -534,7 +534,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -613,7 +613,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -717,7 +717,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return fmt.Errorf("failed to parse response: %w", err)
@@ -774,7 +774,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return fmt.Errorf("failed to parse response: %w", err)
@@ -845,7 +845,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return fmt.Errorf("failed to parse response: %w", err)
@@ -915,7 +915,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var data interface{}
 			if err := json.Unmarshal(resp, &data); err != nil {
 				return err
@@ -1021,7 +1021,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1109,7 +1109,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1156,7 +1156,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1223,7 +1223,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1269,7 +1269,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1317,7 +1317,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1372,7 +1372,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1437,7 +1437,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1487,7 +1487,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err
@@ -1553,7 +1553,7 @@ EXAMPLES:
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			var result interface{}
 			if err := json.Unmarshal(resp, &result); err != nil {
 				return err

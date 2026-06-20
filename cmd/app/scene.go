@@ -75,7 +75,7 @@ EXAMPLES:
 			if formatFlag != nil {
 				format = output.Format(formatFlag.Value.String())
 			}
-			w := output.NewWriter(f.IOStreams, format)
+			w := f.NewWriter(format)
 			return w.Write(scenes)
 		},
 	}

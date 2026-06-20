@@ -51,3 +51,8 @@ func InstallHelpFunc(root *cobra.Command) {
 		defaultHelp(cmd, args)
 	})
 }
+
+// NewWriter creates a new output writer with the factory's OmitNull config.
+func (f *Factory) NewWriter(format output.Format) *output.Writer {
+	return output.NewWriterWithOpts(f.IOStreams, format, f.Config.OmitNull)
+}

@@ -27,9 +27,10 @@ const (
 
 // Writer handles output formatting.
 type Writer struct {
-	format Format
-	out    io.Writer
-	errOut io.Writer
+	format   Format
+	out      io.Writer
+	errOut   io.Writer
+	omitNull bool
 }
 
 // NewWriter creates a new output writer.
@@ -41,8 +42,23 @@ func NewWriter(ioStreams *IOStreams, format Format) *Writer {
 	}
 }
 
+// NewWriterWithOpts creates a new output writer with options.
+func NewWriterWithOpts(ioStreams *IOStreams, format Format, omitNull bool) *Writer {
+	return &Writer{
+		format:   format,
+		out:      ioStreams.Out,
+		errOut:   ioStreams.ErrOut,
+		omitNull: omitNull,
+	}
+}
+
 // Write outputs data in the specified format.
 func (w *Writer) Write(data interface{}) error {
+	// Remove null fields if omitNull is enabled
+	if w.omitNull {
+		data = removeNullFields(data)
+	}
+
 	switch w.format {
 	case FormatJSON:
 		return w.writeJSON(data)
@@ -52,6 +68,28 @@ func (w *Writer) Write(data interface{}) error {
 		return w.writeTable(data)
 	default:
 		return w.writeJSON(data)
+	}
+}
+
+// removeNullFields recursively removes null values from JSON data.
+func removeNullFields(data interface{}) interface{} {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{})
+		for key, value := range v {
+			if value != nil {
+				result[key] = removeNullFields(value)
+			}
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, 0, len(v))
+		for _, item := range v {
+			result = append(result, removeNullFields(item))
+		}
+		return result
+	default:
+		return data
 	}
 }
 
