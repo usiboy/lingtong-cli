@@ -369,8 +369,13 @@ EXAMPLES:
 				return err
 			}
 
-			// Add metadata
+			// Add metadata and clean up redundant fields
 			if result, ok := data.(map[string]interface{}); ok {
+				// Remove redundant `body` field from result (it's a JSON string
+				// duplicating the parsed fields like `list`, `success`, etc.)
+				if innerResult, ok := result["result"].(map[string]interface{}); ok {
+					delete(innerResult, "body")
+				}
 				result["_metadata"] = map[string]interface{}{
 					"workflowId":  entry.WorkflowId,
 					"appTag":      entry.AppTag,
