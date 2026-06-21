@@ -5,18 +5,27 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/lingtong/cli/cmd/api"
 	"github.com/lingtong/cli/cmd/app"
 	"github.com/lingtong/cli/cmd/auth"
+	"github.com/lingtong/cli/cmd/basicdata"
+	"github.com/lingtong/cli/cmd/completion"
 	"github.com/lingtong/cli/cmd/config"
 	"github.com/lingtong/cli/cmd/connector"
+	"github.com/lingtong/cli/cmd/doctor"
+	"github.com/lingtong/cli/cmd/factory"
 	"github.com/lingtong/cli/cmd/model"
 	"github.com/lingtong/cli/cmd/scene"
+	"github.com/lingtong/cli/cmd/service"
 	"github.com/lingtong/cli/cmd/table"
 	"github.com/lingtong/cli/cmd/workflow"
 	"github.com/lingtong/cli/internal/build"
 	"github.com/lingtong/cli/internal/cmdutil"
+	lterrors "github.com/lingtong/cli/internal/errors"
+	"github.com/lingtong/cli/internal/openapi"
 	"github.com/lingtong/cli/internal/output"
 	"github.com/lingtong/cli/shortcuts"
 	"github.com/spf13/cobra"
@@ -48,6 +57,8 @@ FLAGS:
     --format <fmt>        output format: json (default) | table | pretty
     --host <url>          override configured host
     --dry-run             print request without executing
+    --envelope            wrap output in {ok, data, error} envelope
+    --jq, -q <expr>       filter output with jq expression
 
 AI AGENT SKILLS:
     lingtong-cli pairs with AI agent skills that teach the agent
@@ -96,6 +107,21 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 			omitNull, _ := cmd.Flags().GetBool("omit-null")
 			f.Config.OmitNull = omitNull
 		}
+
+		// Handle --envelope flag
+		if cmd.Flags().Changed("envelope") {
+			env, _ := cmd.Flags().GetBool("envelope")
+			f.Envelope = env
+		}
+
+		// Handle --jq flag (validate early)
+		if jqExpr, _ := cmd.Flags().GetString("jq"); jqExpr != "" {
+			if err := output.ValidateJqExpression(jqExpr); err != nil {
+				fmt.Fprintln(f.IOStreams.ErrOut, "Error:", err)
+				os.Exit(output.ExitValidation)
+			}
+			f.JqExpr = jqExpr
+		}
 	}
 
 	// Register subcommands
@@ -105,24 +131,56 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.AddCommand(scene.NewCmdScene(f))
 	rootCmd.AddCommand(workflow.NewCmdWorkflow(f))
 	rootCmd.AddCommand(table.NewCmdTable(f))
+	rootCmd.AddCommand(basicdata.NewCmdBasicdata(f))
+	rootCmd.AddCommand(factory.NewCmdFactory(f))
 	rootCmd.AddCommand(model.NewCmdModel(f))
 	rootCmd.AddCommand(api.NewCmdApi(f))
 	rootCmd.AddCommand(app.NewCmdApp(f))
+
+	// Register P0 enhancement commands
+	rootCmd.AddCommand(completion.NewCmdCompletion(f))
+	rootCmd.AddCommand(doctor.NewCmdDoctor(f))
+
+	// Register P0.5 auto-generated service commands.
+	// The spec is loaded from a runtime override if present, otherwise from
+	// the copy embedded in the binary, so `service` works out of the box.
+	if spec, err := loadOpenAPISpec(); err == nil && spec != nil {
+		service.RegisterServiceCommands(rootCmd, f, spec)
+	}
 
 	// Register shortcuts
 	shortcuts.RegisterShortcuts(rootCmd, f)
 
 	// Add global flags
 	rootCmd.PersistentFlags().Bool("omit-null", true, "Omit null fields in JSON output (default: true)")
+	rootCmd.PersistentFlags().Bool("envelope", false, "Wrap output in standard envelope {ok, data, error}")
+	rootCmd.PersistentFlags().StringP("jq", "q", "", "jq expression to filter output (implies JSON output)")
 
 	return rootCmd
 }
 
 // handleRootError dispatches a command error to the appropriate handler.
+// Returns the process exit code based on the error type.
+//
+// The raw error is first classified (cobra flag errors and hand-written
+// validation checks become typed) so the exit code is meaningful. When
+// --envelope is enabled, a machine-readable failure envelope is written to
+// stdout; otherwise a human-readable message (plus hint) goes to stderr.
 func handleRootError(f *cmdutil.Factory, err error) int {
+	classified := lterrors.Classify(err)
+	exitCode := output.ExitCodeOf(classified)
+
+	if f.Envelope {
+		_ = output.WriteErrorEnvelope(f.IOStreams.Out, "", classified)
+		return exitCode
+	}
+
 	errOut := f.IOStreams.ErrOut
 	fmt.Fprintln(errOut, "Error:", err)
-	return 1
+	if p, ok := lterrors.ProblemOf(classified); ok && p.Hint != "" {
+		fmt.Fprintf(errOut, "Hint: %s\n", p.Hint)
+	}
+	return exitCode
 }
 
 // formatFlag returns the output format from the command flags.
@@ -138,4 +196,40 @@ func formatFlag(cmd *cobra.Command) output.Format {
 	default:
 		return output.FormatJSON
 	}
+}
+
+// loadOpenAPISpec returns the OpenAPI spec used to generate `service` commands.
+// Resolution order (first hit wins):
+//  1. LINGTONG_OPENAPI environment variable (explicit override / freshest)
+//  2. ~/.lingtong-cli/openapi.json (user-managed override)
+//  3. the spec embedded in the binary at build time (default, zero-config)
+//
+// A malformed override falls through to the next source rather than disabling
+// service commands entirely.
+func loadOpenAPISpec() (*openapi.Spec, error) {
+	if path := findOpenAPISpecOverride(); path != "" {
+		if spec, err := openapi.Parse(path); err == nil {
+			return spec, nil
+		}
+	}
+	if openapi.HasEmbeddedSpec() {
+		return openapi.EmbeddedSpec()
+	}
+	return nil, nil
+}
+
+// findOpenAPISpecOverride returns a user-supplied spec path, or "" if none.
+func findOpenAPISpecOverride() string {
+	if path := os.Getenv("LINGTONG_OPENAPI"); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		path := filepath.Join(home, ".lingtong-cli", "openapi.json")
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
 }

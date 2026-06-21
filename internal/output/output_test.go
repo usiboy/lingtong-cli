@@ -64,24 +64,24 @@ func TestRemoveNullFields(t *testing.T) {
 
 func TestWriterOmitNull(t *testing.T) {
 	tests := []struct {
-		name     string
-		omitNull bool
-		input    interface{}
-		contains string
+		name        string
+		omitNull    bool
+		input       interface{}
+		contains    string
 		notContains string
 	}{
 		{
-			name:     "with omitNull true",
-			omitNull: true,
-			input:    map[string]interface{}{"a": "value", "b": nil, "c": 123},
-			contains: "\"a\": \"value\"",
+			name:        "with omitNull true",
+			omitNull:    true,
+			input:       map[string]interface{}{"a": "value", "b": nil, "c": 123},
+			contains:    "\"a\": \"value\"",
 			notContains: "\"b\": null",
 		},
 		{
-			name:     "with omitNull false",
-			omitNull: false,
-			input:    map[string]interface{}{"a": "value", "b": nil, "c": 123},
-			contains: "\"b\": null",
+			name:        "with omitNull false",
+			omitNull:    false,
+			input:       map[string]interface{}{"a": "value", "b": nil, "c": 123},
+			contains:    "\"b\": null",
 			notContains: "",
 		},
 	}
@@ -105,5 +105,48 @@ func TestWriterOmitNull(t *testing.T) {
 				t.Errorf("Write() output should not contain %v, got:\n%s", tt.notContains, output)
 			}
 		})
+	}
+}
+
+// TestWriteJqOnRawData verifies --jq without --envelope filters the raw data.
+func TestWriteJqOnRawData(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriterWithOptions(&IOStreams{Out: &buf}, FormatJSON, WithJq(".name"))
+	data := map[string]interface{}{"name": "kmerp", "version": "1.0"}
+	if err := w.Write(data); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if got := bytes.TrimSpace(buf.Bytes()); string(got) != "kmerp" {
+		t.Errorf("jq output = %q, want kmerp", got)
+	}
+}
+
+// TestWriteJqOnEnvelope verifies that with --jq and --envelope together the
+// expression runs against the full envelope (so '.data.name' works).
+func TestWriteJqOnEnvelope(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriterWithOptions(&IOStreams{Out: &buf}, FormatJSON,
+		WithEnvelope(true, "connector.info"),
+		WithJq(".data.name"),
+	)
+	data := map[string]interface{}{"name": "kmerp"}
+	if err := w.Write(data); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if got := bytes.TrimSpace(buf.Bytes()); string(got) != "kmerp" {
+		t.Errorf("jq-on-envelope output = %q, want kmerp", got)
+	}
+
+	// And '.ok' should be reachable through the envelope.
+	buf.Reset()
+	w = NewWriterWithOptions(&IOStreams{Out: &buf}, FormatJSON,
+		WithEnvelope(true, "x"),
+		WithJq(".ok"),
+	)
+	if err := w.Write(data); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if got := bytes.TrimSpace(buf.Bytes()); string(got) != "true" {
+		t.Errorf("jq .ok = %q, want true", got)
 	}
 }

@@ -14,28 +14,30 @@ import (
 
 // Factory provides dependencies to commands.
 type Factory struct {
-	Config     *config.Config
-	IOStreams  *output.IOStreams
+	Config    *config.Config
+	IOStreams *output.IOStreams
+	Envelope  bool   // global --envelope flag
+	JqExpr    string // global --jq flag
 }
 
 // NewDefault creates a factory with default values.
 func NewDefault() *Factory {
 	cfg, _ := config.Load()
-	
+
 	// Support token from environment variable for E2E testing
 	if token := os.Getenv("LINGTONG_TOKEN"); token != "" {
 		cfg.Token = token
 	}
-	
+
 	// Load token from OS keychain if not set via environment
 	if cfg.Token == "" {
 		if token, err := auth.GetToken(); err == nil {
 			cfg.Token = token
 		}
 	}
-	
+
 	return &Factory{
-		Config:    cfg,
+		Config: cfg,
 		IOStreams: &output.IOStreams{
 			In:     os.Stdin,
 			Out:    os.Stdout,
@@ -53,6 +55,15 @@ func InstallHelpFunc(root *cobra.Command) {
 }
 
 // NewWriter creates a new output writer with the factory's OmitNull config.
-func (f *Factory) NewWriter(format output.Format) *output.Writer {
-	return output.NewWriterWithOpts(f.IOStreams, format, f.Config.OmitNull)
+// Optional commandPath sets the identity field in envelope mode.
+func (f *Factory) NewWriter(format output.Format, commandPath ...string) *output.Writer {
+	identity := ""
+	if len(commandPath) > 0 {
+		identity = commandPath[0]
+	}
+	return output.NewWriterWithOptions(f.IOStreams, format,
+		output.WithOmitNull(f.Config.OmitNull),
+		output.WithEnvelope(f.Envelope, identity),
+		output.WithJq(f.JqExpr),
+	)
 }

@@ -6,13 +6,18 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
+
+	lterrors "github.com/lingtong/cli/internal/errors"
 )
 
 // Client is the HTTP client for Lingtong API.
@@ -114,7 +119,7 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, classifyNetworkError(err)
 	}
 	defer resp.Body.Close()
 
@@ -124,10 +129,67 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(respBody))
+		return nil, classifyHTTPError(resp.StatusCode, string(respBody))
 	}
 
 	return respBody, nil
+}
+
+// classifyNetworkError converts a transport-level error into a typed
+// NetworkError so the CLI can return the correct exit code (4) and a
+// machine-readable error type. The message preserves the "request failed"
+// prefix for backward compatibility with existing callers and tests.
+func classifyNetworkError(err error) error {
+	subtype := lterrors.SubtypeUnknown
+
+	var dnsErr *net.DNSError
+	switch {
+	case stderrors.As(err, &dnsErr):
+		subtype = lterrors.SubtypeNetworkDNS
+	case stderrors.Is(err, syscall.ECONNREFUSED):
+		subtype = lterrors.SubtypeNetworkConnRef
+	default:
+		var netErr net.Error
+		if stderrors.As(err, &netErr) && netErr.Timeout() {
+			subtype = lterrors.SubtypeNetworkTimeout
+		}
+	}
+
+	ne := lterrors.NewNetworkError(subtype, "request failed: %v", err).
+		WithCause(err).
+		WithHint("Check your network connection and the configured --host")
+	if subtype == lterrors.SubtypeNetworkTimeout {
+		ne.Retryable = true
+	}
+	return ne
+}
+
+// classifyHTTPError converts a non-2xx HTTP response into a typed error.
+// Authentication failures (401/403) map to AuthenticationError (exit 3);
+// everything else maps to APIError (exit 1). The message preserves the
+// "API error (<status>)" prefix expected by existing callers and tests.
+func classifyHTTPError(status int, body string) error {
+	msg := fmt.Sprintf("API error (%d): %s", status, body)
+
+	switch {
+	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+		return lterrors.NewAuthenticationError(lterrors.SubtypeTokenInvalid, "%s", msg).
+			WithHint("Run 'lingtong-cli auth login' to refresh your token")
+	case status == http.StatusNotFound:
+		return lterrors.NewAPIError(lterrors.SubtypeNotFound, "%s", msg)
+	case status == http.StatusConflict:
+		return lterrors.NewAPIError(lterrors.SubtypeConflict, "%s", msg)
+	case status == http.StatusTooManyRequests:
+		e := lterrors.NewAPIError(lterrors.SubtypeRateLimit, "%s", msg)
+		e.Retryable = true
+		return e
+	case status >= 500:
+		e := lterrors.NewAPIError(lterrors.SubtypeServerError, "%s", msg)
+		e.Retryable = true
+		return e
+	default:
+		return lterrors.NewAPIError(lterrors.SubtypeUnknown, "%s", msg)
+	}
 }
 
 func joinURL(host, path string) string {

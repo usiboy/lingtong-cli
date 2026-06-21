@@ -28,6 +28,16 @@ func NewCmdScene(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdSceneCreate(f))
 	cmd.AddCommand(newCmdSceneInfo(f))
 
+	// Lifecycle enhancements (see scene_enhance.go).
+	cmd.AddCommand(newCmdSceneUpdate(f))
+	cmd.AddCommand(newCmdSceneDelete(f))
+	cmd.AddCommand(newCmdSceneCopy(f))
+	cmd.AddCommand(newCmdSceneOpen(f))
+	cmd.AddCommand(newCmdScenePublish(f))
+	cmd.AddCommand(newCmdSceneVersion(f))
+	cmd.AddCommand(newCmdSceneTrigger(f))
+	cmd.AddCommand(newCmdSceneFieldMapping(f))
+
 	cmd.PersistentFlags().String("format", "json", "Output format: json, table, pretty")
 	return cmd
 }

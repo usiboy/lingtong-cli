@@ -103,3 +103,94 @@ lingtong-cli connector account list --omit-null=false
 ```
 
 **规则**: AI Agent 调用支持 `--format` 的命令时优先使用 `--format json`，避免解析文本输出。
+
+## AI Agent 输出契约
+
+### 标准信封 (--envelope)
+
+默认关闭（为兼容现有脚本/skills/MCP 的解析，处于迁移期）。开启后所有输出被包裹成统一结构，便于 Agent 可靠解析：
+
+```bash
+lingtong-cli connector info --connector kmerp --envelope
+```
+
+成功：
+```json
+{
+  "ok": true,
+  "identity": "connector.info",
+  "data": { "name": "kmerp" }
+}
+```
+
+失败：
+```json
+{
+  "ok": false,
+  "error": {
+    "type": "authentication",
+    "subtype": "token_invalid",
+    "message": "API error (401): {\"error\":\"unauthorized\"}",
+    "hint": "Run 'lingtong-cli auth login' to refresh your token",
+    "retryable": false
+  }
+}
+```
+
+**规则**：Agent 在自动化场景应加 `--envelope`，通过 `.ok` 判断成功/失败，通过 `.error.type` / `.error.subtype` 决定处理策略，`.error.retryable` 为 `true` 时可重试。
+
+### 类型化退出码
+
+无论是否开启 `--envelope`，进程退出码都具备语义，可直接用于脚本判断：
+
+| 退出码 | 含义 | error.type |
+|--------|------|------------|
+| 0 | 成功 | — |
+| 1 | API / 通用错误 | `api` |
+| 2 | 参数校验失败 | `validation` |
+| 3 | 认证失败（token 无效/过期/无权限） | `authentication` |
+| 4 | 网络错误（超时 / DNS / 连接被拒） | `network` |
+| 5 | 内部错误 | `internal` |
+| 6 | 内容安全违规 | — |
+| 10 | 高风险操作需 `--yes` 确认 | — |
+
+```bash
+lingtong-cli connector info --connector invalid --envelope
+echo $?   # 1 (api) 或 3 (authentication)，取决于服务端响应
+```
+
+### jq 过滤 (--jq / -q)
+
+所有命令支持全局 `--jq`，在输出前应用 jq 表达式（基于 gojq，无需安装外部 jq）。标量结果按 `jq -r` 裸输出，复杂结果按缩进 JSON 输出。
+
+```bash
+# 提取字段列表
+lingtong-cli workflow list --jq '.data[].name'
+
+# 过滤
+lingtong-cli connector list --jq '.data[] | select(.status=="enabled")'
+
+# 与 --envelope 组合时，表达式作用于整个信封（用 .data 进入数据）
+lingtong-cli connector info --connector kmerp --envelope --jq '.data.name'
+```
+
+非法的 jq 表达式会以退出码 2（validation）提前报错；遍历 null 等运行期错误会给出友好提示和顶层字段名。
+
+## Shell 自动补全 (completion)
+
+```bash
+lingtong-cli completion bash > /etc/bash_completion.d/lingtong-cli
+lingtong-cli completion zsh  > ~/.zsh/completions/_lingtong-cli
+lingtong-cli completion fish > ~/.config/fish/completions/lingtong-cli.fish
+lingtong-cli completion powershell > lingtong-cli.ps1
+```
+
+## 健康检查 (doctor)
+
+排查配置/认证/网络问题的自助诊断：
+
+```bash
+lingtong-cli doctor
+```
+
+检查项：CLI 版本、配置文件、host 格式、认证状态（token 脱敏显示）、API 端点可达性与延迟、相关环境变量。

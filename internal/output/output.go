@@ -20,8 +20,8 @@ type IOStreams struct {
 type Format string
 
 const (
-	FormatJSON  Format = "json"
-	FormatTable Format = "table"
+	FormatJSON   Format = "json"
+	FormatTable  Format = "table"
 	FormatPretty Format = "pretty"
 )
 
@@ -31,6 +31,34 @@ type Writer struct {
 	out      io.Writer
 	errOut   io.Writer
 	omitNull bool
+	envelope bool   // wrap output in {ok, data, error} envelope
+	identity string // command identity for envelope (e.g. "connector.info")
+	jqExpr   string // jq expression to apply to output
+}
+
+// WriterOption configures a Writer.
+type WriterOption func(*Writer)
+
+// WithEnvelope enables or disables the standard envelope wrapper.
+func WithEnvelope(enabled bool, identity string) WriterOption {
+	return func(w *Writer) {
+		w.envelope = enabled
+		w.identity = identity
+	}
+}
+
+// WithJq sets a jq expression to filter the output.
+func WithJq(expr string) WriterOption {
+	return func(w *Writer) {
+		w.jqExpr = expr
+	}
+}
+
+// WithOmitNull sets whether to omit null fields.
+func WithOmitNull(omit bool) WriterOption {
+	return func(w *Writer) {
+		w.omitNull = omit
+	}
 }
 
 // NewWriter creates a new output writer.
@@ -52,11 +80,49 @@ func NewWriterWithOpts(ioStreams *IOStreams, format Format, omitNull bool) *Writ
 	}
 }
 
+// NewWriterWithOptions creates a new output writer with functional options.
+func NewWriterWithOptions(ioStreams *IOStreams, format Format, opts ...WriterOption) *Writer {
+	w := &Writer{
+		format: format,
+		out:    ioStreams.Out,
+		errOut: ioStreams.ErrOut,
+	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
+}
+
 // Write outputs data in the specified format.
+//
+// Order of operations: omit-null → envelope wrap → jq filter → format. This
+// means that when --envelope and --jq are combined, the jq expression runs
+// against the full envelope (e.g. '.data[]'), which is predictable and matches
+// what the user sees without --jq.
 func (w *Writer) Write(data interface{}) error {
 	// Remove null fields if omitNull is enabled
 	if w.omitNull {
 		data = removeNullFields(data)
+	}
+
+	// Wrap in the success envelope when enabled.
+	var payload interface{} = data
+	if w.envelope {
+		payload = Envelope{
+			OK:       true,
+			Identity: w.identity,
+			Data:     data,
+		}
+	}
+
+	// jq filtering takes precedence over format; it always emits its own output.
+	if w.jqExpr != "" {
+		return JqFilter(w.out, payload, w.jqExpr)
+	}
+
+	// Envelope output is always JSON regardless of --format.
+	if w.envelope {
+		return w.writeJSON(payload)
 	}
 
 	switch w.format {

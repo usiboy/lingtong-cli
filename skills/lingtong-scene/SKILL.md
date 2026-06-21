@@ -216,6 +216,26 @@ lingtong-cli +scene-list [--page <n>] [--page-size <n>] [--app-id <id>]
 5. **本地开发用 `app scene`** 命令管理应用 JSON 文件
 6. **场景 ID 提取**：兼容 `result.sceneId` 和 `result.id`（优先 `sceneId`）
 
+## 生命周期命令(增强)
+
+除 list/create/info 外,场景命令组提供完整生命周期操作:
+
+```bash
+lingtong-cli scene update --data '{"id":123,"name":"renamed"}'   # 更新
+lingtong-cli scene copy --scene-id 123                            # 复制
+lingtong-cli scene open --scene-id 123                            # 开启/关闭(切换)
+lingtong-cli scene publish --scene-id 123                         # 发布版本
+lingtong-cli scene publish --data '{"sceneId":123,"remark":"v2"}' # 发布(完整快照)
+lingtong-cli scene version list --scene-id 123                    # 版本历史
+lingtong-cli scene trigger get  --scene-id 123                    # 触发器条件
+lingtong-cli scene trigger save --data '{"sceneId":123}'          # 保存触发器条件
+lingtong-cli scene field-mapping list    --scene-id 123           # 字段映射列表
+lingtong-cli scene field-mapping execute --data '{"sceneId":123}' # 字段映射调试
+lingtong-cli scene delete --scene-id 123 --yes                    # 删除(破坏性,需 --yes)
+```
+
+**规则**:`delete` 默认拒绝,必须加 `--yes`,否则以**退出码 10**(需要确认)失败。更长尾的场景接口(数据合并/预处理/暂存模型等)用自动生成层 [[lingtong-service]]:`lingtong-cli service scene ...`。
+
 ## 保留 Reference
 
 - [limitations.md](references/limitations.md) - CLI `scene create` 命令的限制说明
