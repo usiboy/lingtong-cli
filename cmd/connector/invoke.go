@@ -165,12 +165,13 @@ func ensureConnectorInvokeWorkflow(f *cmdutil.Factory, env string) (*ConnectorCa
 
 	// Step 1: Create the workflow using /workflow/create
 	timestamp := time.Now().Format("150405")
-	workflowName := fmt.Sprintf("[CLI] 通用连接器调用 (%s) %s", env, timestamp)
+	workflowName := fmt.Sprintf("[CLI] 通用连接器调用 %s", timestamp)
+	workflowMemo := "⚠️ 此工作流由 lingtong-cli 自动创建和管理，用于通用连接器接口调用。\n请勿手动修改工作流内容（节点配置、脚本等），否则会导致 CLI 调用失败。\n如需重新创建，请使用: lingtong-cli connector invoke ... --force"
 
 	createBody := map[string]interface{}{
 		"appId": 165,
 		"name":  workflowName,
-		"memo":  fmt.Sprintf("CLI自动创建的通用连接器调用工作流\n环境: %s\n⚠️ 此工作流由CLI自动管理，请勿手动修改", env),
+		"memo":  workflowMemo,
 		"env":   env,
 	}
 
@@ -207,6 +208,7 @@ func ensureConnectorInvokeWorkflow(f *cmdutil.Factory, env string) (*ConnectorCa
 		"appId":      165,
 		"workflowId": workflowId,
 		"name":       workflowName,
+		"memo":       workflowMemo,
 		"content":    string(dslJson),
 		"env":        env,
 		"ts":         ts,

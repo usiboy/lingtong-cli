@@ -126,6 +126,7 @@ EXAMPLES:
 			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
+			c.DisableProxy()
 
 			// Step 1: Create execution task
 			createPath := "/gw/workflow/debug/create"

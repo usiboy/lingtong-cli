@@ -4,6 +4,8 @@
 package shortcuts
 
 import (
+	"strconv"
+
 	"github.com/lingtong/cli/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
@@ -33,14 +35,26 @@ func newShortcutConnectorInfo(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newShortcutSceneList(f *cmdutil.Factory) *cobra.Command {
+	var page, pageSize int
+	var appID string
 	cmd := &cobra.Command{
 		Use:   "+scene-list",
 		Short: "Quick list scenes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Root().SetArgs([]string{"scene", "list"})
+			cmdArgs := []string{"scene", "list",
+				"--page", strconv.Itoa(page),
+				"--page-size", strconv.Itoa(pageSize),
+			}
+			if appID != "" {
+				cmdArgs = append(cmdArgs, "--app-id", appID)
+			}
+			cmd.Root().SetArgs(cmdArgs)
 			return cmd.Root().Execute()
 		},
 	}
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&pageSize, "page-size", 20, "Page size")
+	cmd.Flags().StringVar(&appID, "app-id", "", "Application ID filter")
 	return cmd
 }
 
@@ -50,7 +64,7 @@ func newShortcutWorkflowExecute(f *cmdutil.Factory) *cobra.Command {
 		Use:   "+workflow-execute",
 		Short: "Quick execute workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Root().SetArgs([]string{"workflow", "execute", "--workflow-id", string(rune(workflowId))})
+			cmd.Root().SetArgs([]string{"workflow", "execute", "--workflow-id", strconv.Itoa(workflowId)})
 			return cmd.Root().Execute()
 		},
 	}

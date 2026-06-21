@@ -89,10 +89,18 @@ func newCmdSceneCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new integration scene",
-		Long: `Create a new integration scene.
+		Long: `Create a new integration scene (draft mode only).
+
+This command creates a minimal draft scene with only name and description.
+For full scene creation (connectors, accounts, model selection), use the
+'lingtong-scene-create' skill which handles the complete multi-step workflow.
 
 EXAMPLES:
-    lingtong-cli scene create --name "Order Sync" --description "Sync orders from ERP to CRM"`,
+    lingtong-cli scene create --name "Order Sync" --description "Sync orders from ERP to CRM"
+
+SEE ALSO:
+    Use 'lingtong-scene-create' skill for complete scene setup with connector
+    and account configuration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
