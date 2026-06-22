@@ -20,6 +20,7 @@ import (
 	"github.com/lingtong/cli/cmd/scene"
 	"github.com/lingtong/cli/cmd/schema"
 	"github.com/lingtong/cli/cmd/service"
+	"github.com/lingtong/cli/cmd/skills"
 	"github.com/lingtong/cli/cmd/table"
 	"github.com/lingtong/cli/cmd/update"
 	"github.com/lingtong/cli/cmd/workflow"
@@ -67,7 +68,11 @@ AI AGENT SKILLS:
     lingtong-cli pairs with AI agent skills that teach the agent
     Lingtong API patterns, best practices, and workflows.
 
-    Skills are located in the skills/ directory:
+    Install them into your AI editor (Claude Code, OpenCode, Qoder,
+    Cursor, Trae, Codex) — skills are embedded, no npx required:
+        lingtong-cli skills install
+
+    Bundled skills:
     - lingtong-shared: Auth, config, security rules
     - lingtong-connector: Connector management
     - lingtong-scene: Scene management
@@ -174,6 +179,7 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	// Register P0 enhancement commands
 	rootCmd.AddCommand(completion.NewCmdCompletion(f))
 	rootCmd.AddCommand(doctor.NewCmdDoctor(f))
+	rootCmd.AddCommand(skills.NewCmdSkills(f))
 
 	// Register P2 enhancement commands
 	rootCmd.AddCommand(schema.NewCmdSchema(f))

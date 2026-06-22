@@ -1,10 +1,27 @@
 ---
 name: lingtong-shared
-version: 1.1.0
-description: "绫通 CLI 共享基础：配置初始化 (config init)、认证登录 (auth login)、Token 管理、安全规则、多环境 Profile、API 文档浏览 (schema)、版本更新 (update)、系统通知。当用户需要第一次配置、登录、遇到权限问题、切换 dev/staging/prod 环境、浏览 API、检查更新或首次使用 lingtong-cli 时触发。关键词：config、profile、schema、update、notice、多环境。"
+version: 1.2.0
+description: "绫通 CLI 共享基础：配置初始化 (config init)、认证登录 (auth login)、Token 管理、安全规则、多环境 Profile、API 文档浏览 (schema)、版本更新 (update)、系统通知、Skills 安装到 AI 编辑器 (skills install)。当用户需要第一次配置、登录、遇到权限问题、切换 dev/staging/prod 环境、浏览 API、检查更新、把 Skills 装到 Claude Code/OpenCode/Qoder/Cursor/Trae/Codex 或首次使用 lingtong-cli 时触发。关键词：config、profile、schema、update、notice、skills install、多环境、编辑器。"
 ---
 
 # lingtong-cli 共享规则
+
+## 安装 Skills 到 AI 编辑器
+
+Skills 已内置进 `lingtong-cli` 二进制，用 `skills install` 即可写入各 AI 编辑器读取的目录
+（无需源码或 npx），让 Agent 识别到 CLI、命令行与 Skills：
+
+```bash
+lingtong-cli skills install                       # 自动探测并安装（推荐）
+lingtong-cli skills install --editor claude,opencode
+lingtong-cli skills install --scope global         # 或 project
+lingtong-cli skills install --dry-run              # 预览
+lingtong-cli skills status                          # 查看已安装位置
+lingtong-cli skills uninstall --editor cursor       # 卸载
+```
+
+支持编辑器：Claude Code、OpenCode、Qoder、Cursor、Trae、Codex。安装是**幂等**的——
+`AGENTS.md` / `CLAUDE.md` 中的内容写在受管标记块内，重复安装只替换该块，不破坏既有内容。
 
 ## 配置初始化
 

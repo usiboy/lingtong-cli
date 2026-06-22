@@ -197,8 +197,8 @@
 # 安装 CLI
 npm install -g @lingtong/cli
 
-# 安装 CLI SKILL（必需）
-npx skills add lingtong/cli -y -g
+# 安装 Skills 到你的 AI 编辑器（必需，自动探测并安装）
+lingtong-cli skills install
 ```
 
 **方式二 — 从源码安装：**
@@ -210,9 +210,14 @@ git clone <repository-url>
 cd lingtong-cli
 make install
 
-# 安装 CLI SKILL（必需）
-npx skills add lingtong/cli -y -g
+# 安装 Skills 到你的 AI 编辑器（必需）
+lingtong-cli skills install
 ```
+
+> Skills 已内置进二进制，`lingtong-cli skills install` 无需源码或 npx。
+> 它会自动探测并适配 Claude Code、OpenCode、Qoder、Cursor、Trae、Codex。
+> 详见下文 [安装 Skills 到 AI 编辑器](#安装-skills-到-ai-编辑器)。
+> （仍兼容旧方式 `npx skills add lingtong/cli -y -g`。）
 
 #### 配置与使用
 
@@ -239,8 +244,8 @@ lingtong-cli connector info --connector kmerp
 # 安装 CLI
 npm install -g @lingtong/cli
 
-# 安装 CLI SKILL（必需）
-npx skills add lingtong/cli -y -g
+# 安装 Skills 到 AI 编辑器（必需，自动探测）
+lingtong-cli skills install
 ```
 
 **第 2 步 — 配置主机地址**
@@ -286,6 +291,53 @@ lingtong-cli auth status
 | `lingtong-workflow` | 工作流创建、发布、执行、日志查询 |
 | `lingtong-table` | 表格 CRUD、数据查询、字段管理 |
 | `lingtong-model` | 接口模型、领域模型、动态模型 Schema 查询 |
+
+## 安装 Skills 到 AI 编辑器
+
+Skills 已通过 `go:embed` 内置进 `lingtong-cli` 二进制，`lingtong-cli skills install`
+会把它们写入各 AI 编辑器读取的目录，让这些 Agent 自动识别 **CLI、命令行与 Skills**。
+无需源码树，也无需 `npx`。
+
+**支持的编辑器：**
+
+| 编辑器 | Skills 目录 | Agent 指引文件 |
+|--------|-------------|----------------|
+| Claude Code | `~/.claude/skills`（全局）/ `.claude/skills`（项目） | `CLAUDE.md` |
+| OpenCode | `~/.config/opencode/skills` / `.opencode/skills` | `AGENTS.md` |
+| Qoder | `~/.qoder/skills` / `.qoder/skills` | `AGENTS.md` |
+| Cursor | `~/.cursor/skills` / `.cursor/skills` | `AGENTS.md` |
+| Trae | `~/.trae/skills` / `.trae/skills` | `AGENTS.md` |
+| Codex | （无独立 Skills 目录） | `AGENTS.md`、`~/.codex/AGENTS.md` |
+
+```bash
+# 自动探测当前项目与用户主目录里已存在的编辑器，逐一安装
+lingtong-cli skills install
+
+# 仅安装到指定编辑器
+lingtong-cli skills install --editor claude,opencode
+
+# 强制范围：global（用户主目录，全项目共享）| project（当前仓库）
+lingtong-cli skills install --scope global
+lingtong-cli skills install --scope project
+
+# 预览将要发生的改动，不写文件
+lingtong-cli skills install --dry-run
+
+# 查看已安装位置 / 列出内置 Skills / 卸载
+lingtong-cli skills status
+lingtong-cli skills list
+lingtong-cli skills uninstall --editor cursor
+```
+
+**行为说明：**
+
+- **自动探测**：不带 `--scope` 时，项目里存在 `.opencode/`、`.cursor/` 等目录就装到项目级；
+  `~/.claude`、`~/.codex` 等存在则装到全局。显式 `--editor X` 但未探测到时回退到全局。
+- **幂等**：`AGENTS.md` / `CLAUDE.md` 中的绫通内容包裹在受管标记块内，重复安装只替换该块，
+  绝不破坏你已有的内容。
+- **可卸载**：`skills uninstall` 移除已安装的 skill 目录并清除受管块（若文件仅含受管块则删除文件）。
+
+> 也可用薄封装脚本：`./scripts/install-skills.sh [同上参数]`（适合 CI / 一键安装）。
 
 ## 认证
 

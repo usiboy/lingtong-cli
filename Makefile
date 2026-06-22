@@ -8,7 +8,7 @@ DATE     := $(shell date +%Y-%m-%d)
 LDFLAGS  := -s -w -X $(MODULE)/internal/build.Version=$(VERSION) -X $(MODULE)/internal/build.Date=$(DATE)
 PREFIX   ?= /usr/local
 
-.PHONY: build vet test unit-test integration-test install uninstall clean gen-docs check-docs
+.PHONY: build vet test unit-test integration-test install install-skills uninstall clean gen-docs check-docs
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BINARY) .
@@ -50,6 +50,11 @@ install: build
 	install -d $(PREFIX)/bin
 	install -m755 $(BINARY) $(PREFIX)/bin/$(BINARY)
 	@echo "OK: $(PREFIX)/bin/$(BINARY) ($(VERSION))"
+
+# Install the embedded skills into detected AI editors (Claude Code, OpenCode,
+# Qoder, Cursor, Trae, Codex). Forwards extra args, e.g. ARGS="--scope global".
+install-skills: build
+	./$(BINARY) skills install $(ARGS)
 
 uninstall:
 	rm -f $(PREFIX)/bin/$(BINARY)
