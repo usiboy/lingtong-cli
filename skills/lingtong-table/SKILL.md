@@ -1,7 +1,7 @@
 ---
 name: lingtong-table
 version: 2.10.0
-description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量更新、删除、Schema 管理。当用户需要操作绫通表格、查询数据、创建记录、批量更新、删除记录、理解表格结构时触发。关键词：table、表格、table data、query、create record、batch-update、delete、schema。"
+description: "绫通表格管理：表格 CRUD、数据查询、记录创建、单条更新、批量更新、记录计数、删除（带确认）、Schema 管理。当用户需要操作绫通表格、查询数据、创建记录、更新记录、统计记录数、删除记录、理解表格结构时触发。关键词：table、表格、table data、query、create record、update、count、batch-update、delete、schema。"
 ---
 
 # lingtong-table 技能
@@ -337,6 +337,28 @@ lingtong-cli table data create --basic-data-id 1553 --schema-id 2189 --data '{"0
 lingtong-cli table data create --basic-data-id 1553 --schema-id 2189 --data '{"0":"测试"}' --version 5
 ```
 
+### 更新单条记录
+
+```bash
+lingtong-cli table data update --basic-data-id <id> --schema-id <id> --id <record-id> --data <json> [--version <n>]
+```
+
+**参数说明**:
+- `--basic-data-id`: 表格 ID（必填）
+- `--schema-id`: Schema ID（必填）
+- `--id`: 记录 ID（必填）
+- `--data`: 要更新的字段，JSON 对象，key 为字段 ID（必填）
+- `--version`: Schema 版本号（可选，不指定则跳过版本校验）
+
+**示例**:
+```bash
+# 更新单条记录的某个字段
+lingtong-cli table data update --basic-data-id 123 --schema-id 1 --id 33832272 --data '{"1":"新值"}'
+
+# 带版本号更新
+lingtong-cli table data update --basic-data-id 123 --schema-id 1 --id 33832272 --data '{"1":"新值"}' --version 5
+```
+
 ### 批量更新记录
 
 ```bash
@@ -367,40 +389,71 @@ lingtong-cli table data batch-update --basic-data-id 1633 --schema-id 2546 --ver
 - `basicDataId` 和 `schemaId` 会自动从命令行参数填充
 - 日期字段使用毫秒时间戳存储
 
-### 删除记录
+### 统计记录数
 
 ```bash
-lingtong-cli table data delete --schema-id <id> --id <id>
+lingtong-cli table data count --schema-id <id> --version <n> [--basic-data-id <id>] [--filter <json>]
+```
+
+**参数说明**:
+- `--schema-id`: Schema ID（必填）
+- `--version`: 数据版本号（必填）
+- `--basic-data-id`: 表格 ID（可选）
+- `--filter`: 字段级精确匹配 JSON（可选）
+
+**示例**:
+```bash
+# 统计记录总数
+lingtong-cli table data count --schema-id 2546 --version 1
+
+# 按条件统计
+lingtong-cli table data count --schema-id 2546 --version 1 --filter '{"1":"系统订单"}'
+```
+
+### 删除记录
+
+删除操作是破坏性的，需要 `--yes` 确认。
+
+```bash
+lingtong-cli table data delete --schema-id <id> --id <id> --yes
 ```
 
 **参数说明**:
 - `--schema-id`: Schema ID（必填）
 - `--id`: 记录 ID（必填）
+- `--yes`: 确认破坏性操作（必填）
 
 **示例**:
 ```bash
-# 删除单条记录
+# 删除单条记录（需要 --yes）
+lingtong-cli table data delete --schema-id 2546 --id 33832272 --yes
+
+# 不加 --yes 将返回退出码 10（需要确认）
 lingtong-cli table data delete --schema-id 2546 --id 33832272
 ```
 
 ### 批量删除记录
 
+批量删除同样需要 `--yes` 确认。
+
 ```bash
-lingtong-cli table data batch-delete --schema-id <id> --ids <ids>
+lingtong-cli table data batch-delete --schema-id <id> --ids <ids> --yes
 ```
 
 **参数说明**:
 - `--schema-id`: Schema ID（必填）
 - `--ids`: 逗号分隔的记录 ID 列表（必填）
+- `--yes`: 确认破坏性操作（必填）
 
 **示例**:
 ```bash
-# 批量删除多条记录
-lingtong-cli table data batch-delete --schema-id 2546 --ids "33832272,33832273,33832274"
+# 批量删除多条记录（需要 --yes）
+lingtong-cli table data batch-delete --schema-id 2546 --ids "33832272,33832273,33832274" --yes
 ```
 
 **注意事项**:
 - 删除操作不可逆，请谨慎使用
+- 删除和批量删除都需要 `--yes` 确认，防止误操作
 - 批量删除支持一次删除多条记录
 - 删除后数据可通过 rollback 接口恢复（需后端支持）
 

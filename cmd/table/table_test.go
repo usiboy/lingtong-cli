@@ -14,6 +14,7 @@ import (
 
 	"github.com/lingtong/cli/internal/cmdutil"
 	"github.com/lingtong/cli/internal/config"
+	lterrors "github.com/lingtong/cli/internal/errors"
 	"github.com/lingtong/cli/internal/output"
 )
 
@@ -1041,7 +1042,7 @@ func TestNewCmdTableDataDelete_Success(t *testing.T) {
 	cmd := NewCmdTable(f)
 	cmd.SetOut(out)
 	cmd.SetErr(errOut)
-	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272"})
+	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272", "--yes"})
 
 	err := cmd.Execute()
 	if err != nil {
@@ -1083,7 +1084,7 @@ func TestNewCmdTableDataDelete_NoHostConfigured(t *testing.T) {
 	f, _, errOut := newTestFactory("")
 	cmd := NewCmdTable(f)
 	cmd.SetErr(errOut)
-	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272"})
+	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272", "--yes"})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -1125,7 +1126,7 @@ func TestNewCmdTableDataBatchDelete_Success(t *testing.T) {
 	cmd := NewCmdTable(f)
 	cmd.SetOut(out)
 	cmd.SetErr(errOut)
-	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "33832272,33832273,33832274"})
+	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "33832272,33832273,33832274", "--yes"})
 
 	err := cmd.Execute()
 	if err != nil {
@@ -1182,7 +1183,7 @@ func TestNewCmdTableDataBatchDelete_NoHostConfigured(t *testing.T) {
 	f, _, errOut := newTestFactory("")
 	cmd := NewCmdTable(f)
 	cmd.SetErr(errOut)
-	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "1,2,3"})
+	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "1,2,3", "--yes"})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -1190,6 +1191,343 @@ func TestNewCmdTableDataBatchDelete_NoHostConfigured(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no host configured") {
 		t.Fatalf("expected host config error, got %v", err)
+	}
+}
+
+// ==================== data update tests ====================
+
+func TestTableDataUpdate_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if req.Path != "/basicdata/record/update" {
+			t.Fatalf("expected path /basicdata/record/update, got %s", req.Path)
+		}
+		if req.Method != "POST" {
+			t.Fatalf("expected method POST, got %s", req.Method)
+		}
+		if bdi, ok := req.Body["basicDataId"].(float64); !ok || int(bdi) != 123 {
+			t.Fatalf("expected basicDataId=123, got %v", req.Body["basicDataId"])
+		}
+		if si, ok := req.Body["schemaId"].(float64); !ok || int(si) != 1 {
+			t.Fatalf("expected schemaId=1, got %v", req.Body["schemaId"])
+		}
+		if id, ok := req.Body["id"].(float64); !ok || int(id) != 999 {
+			t.Fatalf("expected id=999, got %v", req.Body["id"])
+		}
+		if d, ok := req.Body["data"].(map[string]interface{}); !ok || d["1"] != "x" {
+			t.Fatalf("expected data={1:x}, got %v", req.Body["data"])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "update", "--basic-data-id", "123", "--schema-id", "1", "--id", "999", "--data", `{"1":"x"}`})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataUpdate_WithVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if v, ok := req.Body["version"].(float64); !ok || int(v) != 5 {
+			t.Fatalf("expected version=5, got %v", req.Body["version"])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "update", "--basic-data-id", "123", "--schema-id", "1", "--id", "999", "--data", `{"1":"x"}`, "--version", "5"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataUpdate_VersionOmitted(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if _, present := req.Body["version"]; present {
+			t.Fatalf("version should be omitted when not set, got %v", req.Body["version"])
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "update", "--basic-data-id", "123", "--schema-id", "1", "--id", "999", "--data", `{"1":"x"}`})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataUpdate_MissingRequiredFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"missing basic-data-id", []string{"data", "update", "--schema-id", "1", "--id", "1", "--data", `{}`}},
+		{"missing schema-id", []string{"data", "update", "--basic-data-id", "1", "--id", "1", "--data", `{}`}},
+		{"missing id", []string{"data", "update", "--basic-data-id", "1", "--schema-id", "1", "--data", `{}`}},
+		{"missing data", []string{"data", "update", "--basic-data-id", "1", "--schema-id", "1", "--id", "1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _, errOut := newTestFactory("http://example.com")
+			cmd := NewCmdTable(f)
+			cmd.SetErr(errOut)
+			cmd.SetArgs(tt.args)
+			if err := cmd.Execute(); err == nil {
+				t.Fatal("expected error for missing flag")
+			}
+		})
+	}
+}
+
+func TestTableDataUpdate_InvalidData(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "update", "--basic-data-id", "1", "--schema-id", "1", "--id", "1", "--data", "{bad"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --data JSON")
+	}
+	if lterrors.CategoryOf(err) != lterrors.CategoryValidation {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestTableDataUpdate_NoHostConfigured(t *testing.T) {
+	f, _, errOut := newTestFactory("")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "update", "--basic-data-id", "1", "--schema-id", "1", "--id", "1", "--data", `{"1":"x"}`})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected host config error")
+	}
+}
+
+// ==================== data count tests ====================
+
+func TestTableDataCount_ProxyPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if req.Path != "/basicdata/record/count" {
+			t.Fatalf("expected path /basicdata/record/count, got %s", req.Path)
+		}
+		if req.Method != "GET" {
+			t.Fatalf("expected method GET, got %s", req.Method)
+		}
+		// GET params are in URL query string
+		query := r.URL.Query()
+		if got := query.Get("schemaId"); got != "2546" {
+			t.Fatalf("expected schemaId=2546 in query, got %s", got)
+		}
+		if got := query.Get("version"); got != "1" {
+			t.Fatalf("expected version=1 in query, got %s", got)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"result": 42})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546", "--version", "1"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataCount_WithFilter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GET params are in URL query string
+		query := r.URL.Query()
+		dataFrom := query.Get("dataFrom")
+		if dataFrom == "" {
+			t.Fatalf("expected dataFrom in query, got empty")
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"result": 5})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546", "--version", "1", "--filter", `{"1":"系统订单"}`})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataCount_WithBasicDataId(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		if got := query.Get("basicDataId"); got != "123" {
+			t.Fatalf("expected basicDataId=123 in query, got %s", got)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"result": 10})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546", "--version", "1", "--basic-data-id", "123"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataCount_MissingSchemaId(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--version", "1"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error for missing --schema-id")
+	}
+}
+
+func TestTableDataCount_MissingVersion(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error for missing --version")
+	}
+}
+
+func TestTableDataCount_InvalidFilter(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546", "--version", "1", "--filter", "{bad"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --filter JSON")
+	}
+	if lterrors.CategoryOf(err) != lterrors.CategoryValidation {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestTableDataCount_NoHostConfigured(t *testing.T) {
+	f, _, errOut := newTestFactory("")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "count", "--schema-id", "2546", "--version", "1"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected host config error")
+	}
+}
+
+// ==================== delete confirmation tests ====================
+
+func TestTableDataDelete_NeedsConfirmation(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected confirmation error without --yes")
+	}
+	if lterrors.CategoryOf(err) != lterrors.CategoryConfirmation {
+		t.Fatalf("expected confirmation error, got %v", err)
+	}
+	if got := output.ExitCodeOf(err); got != output.ExitConfirmationRequired {
+		t.Fatalf("exit code = %d, want %d", got, output.ExitConfirmationRequired)
+	}
+}
+
+func TestTableDataDelete_ConfirmedWithYes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if req.Path != "/basicdata/record/batchDelete" {
+			t.Fatalf("expected path /basicdata/record/batchDelete, got %s", req.Path)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "delete", "--schema-id", "2546", "--id", "33832272", "--yes"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTableDataBatchDelete_NeedsConfirmation(t *testing.T) {
+	f, _, errOut := newTestFactory("http://example.com")
+	cmd := NewCmdTable(f)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "1,2,3"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected confirmation error without --yes")
+	}
+	if lterrors.CategoryOf(err) != lterrors.CategoryConfirmation {
+		t.Fatalf("expected confirmation error, got %v", err)
+	}
+	if got := output.ExitCodeOf(err); got != output.ExitConfirmationRequired {
+		t.Fatalf("exit code = %d, want %d", got, output.ExitConfirmationRequired)
+	}
+}
+
+func TestTableDataBatchDelete_ConfirmedWithYes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeProxyRequest(t, r)
+		if req.Path != "/basicdata/record/batchDelete" {
+			t.Fatalf("expected path /basicdata/record/batchDelete, got %s", req.Path)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}))
+	defer server.Close()
+
+	f, out, errOut := newTestFactory(server.URL)
+	cmd := NewCmdTable(f)
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetArgs([]string{"data", "batch-delete", "--schema-id", "2546", "--ids", "1,2,3", "--yes"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

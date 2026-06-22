@@ -11,18 +11,10 @@ import (
 
 	"github.com/lingtong/cli/internal/client"
 	"github.com/lingtong/cli/internal/cmdutil"
+	lterrors "github.com/lingtong/cli/internal/errors"
 	"github.com/lingtong/cli/internal/output"
 	"github.com/spf13/cobra"
 )
-
-const missingHostConfigMessage = "no host configured. Run `lingtong-cli config init --host <url>` first"
-
-func requireHostConfigured(host string) error {
-	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf(missingHostConfigMessage)
-	}
-	return nil
-}
 
 // NewCmdTable creates the table command.
 func NewCmdTable(f *cmdutil.Factory) *cobra.Command {
@@ -55,7 +47,7 @@ EXAMPLES:
     lingtong-cli table list
     lingtong-cli table list --app-id 123`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -122,7 +114,7 @@ EXAMPLES:
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -320,7 +312,7 @@ EXAMPLES:
 			if id == 0 {
 				return fmt.Errorf("--id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -409,6 +401,8 @@ func newCmdTableData(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.AddCommand(newCmdTableDataQuery(f))
 	cmd.AddCommand(newCmdTableDataCreate(f))
+	cmd.AddCommand(newCmdTableDataUpdate(f))
+	cmd.AddCommand(newCmdTableDataCount(f))
 	cmd.AddCommand(newCmdTableDataBatchUpdate(f))
 	cmd.AddCommand(newCmdTableDataDelete(f))
 	cmd.AddCommand(newCmdTableDataBatchDelete(f))
@@ -470,7 +464,7 @@ EXAMPLES:
 			if basicDataId == 0 {
 				return fmt.Errorf("--basic-data-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -587,7 +581,7 @@ EXAMPLES:
 			if data == "" {
 				return fmt.Errorf("--data is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -671,7 +665,7 @@ EXAMPLES:
 			if records == "" {
 				return fmt.Errorf("--records is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -736,21 +730,169 @@ EXAMPLES:
 	return cmd
 }
 
+// ==================== table data update ====================
+
+func newCmdTableDataUpdate(f *cmdutil.Factory) *cobra.Command {
+	var basicDataId, schemaId, id, version int
+	var data string
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a single record",
+		Long: `Update one existing record by ID.
+
+Wraps POST /basicdata/record/update. --data is a JSON object keyed by field id
+containing only the fields to change.
+
+EXAMPLES:
+    lingtong-cli table data update --basic-data-id 123 --schema-id 1 --id 33832272 --data '{"1":"newValue"}'
+    lingtong-cli table data update --basic-data-id 123 --schema-id 1 --id 33832272 --data '{"1":"newValue"}' --version 5`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmdutil.RequireFlag(basicDataId != 0, "basic-data-id"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireFlag(schemaId != 0, "schema-id"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireFlag(id != 0, "id"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireFlag(data != "", "data"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			dataMap, err := cmdutil.ParseDataObject(data)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]interface{}{
+				"basicDataId": basicDataId,
+				"schemaId":    schemaId,
+				"id":          id,
+				"data":        dataMap,
+			}
+			if version > 0 {
+				body["version"] = version
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Post("/basicdata/record/update", body)
+			if err != nil {
+				return fmt.Errorf("failed to update record: %w", err)
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := f.NewWriter(format)
+			var result interface{}
+			if err := json.Unmarshal(resp, &result); err != nil {
+				return fmt.Errorf("failed to parse response: %w", err)
+			}
+			return w.Write(result)
+		},
+	}
+
+	cmd.Flags().IntVar(&basicDataId, "basic-data-id", 0, "Basic-data (table) ID (required)")
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().IntVar(&id, "id", 0, "Record ID to update (required)")
+	cmd.Flags().IntVar(&version, "version", 0, "Data version number (optional)")
+	cmd.Flags().StringVar(&data, "data", "", "Fields to update (JSON object, required)")
+	_ = cmd.MarkFlagRequired("basic-data-id")
+	_ = cmd.MarkFlagRequired("schema-id")
+	_ = cmd.MarkFlagRequired("id")
+	_ = cmd.MarkFlagRequired("data")
+	return cmd
+}
+
+// ==================== table data count ====================
+
+func newCmdTableDataCount(f *cmdutil.Factory) *cobra.Command {
+	var schemaId, version, basicDataId int
+	var filter string
+
+	cmd := &cobra.Command{
+		Use:   "count",
+		Short: "Count records matching a query",
+		Long: `Count records of a table without fetching them.
+
+Wraps GET /basicdata/record/count. Requires --schema-id and --version.
+
+EXAMPLES:
+    lingtong-cli table data count --schema-id 2546 --version 1
+    lingtong-cli table data count --schema-id 2546 --version 1 --filter '{"1":"系统订单"}'
+    lingtong-cli table data count --schema-id 2546 --version 1 --basic-data-id 123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmdutil.RequireFlag(schemaId != 0, "schema-id"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireFlag(version != 0, "version"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
+				return err
+			}
+
+			params := map[string]interface{}{
+				"schemaId": schemaId,
+				"version":  version,
+			}
+			if basicDataId != 0 {
+				params["basicDataId"] = basicDataId
+			}
+			if filter != "" {
+				var fm map[string]interface{}
+				if err := json.Unmarshal([]byte(filter), &fm); err != nil {
+					return lterrors.NewValidationError(lterrors.SubtypeInvalidArgument,
+						"--filter must be a JSON object").WithCause(err)
+				}
+				params["dataFrom"] = fm
+			}
+
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+			resp, err := c.Get("/basicdata/record/count", params)
+			if err != nil {
+				return err
+			}
+
+			format := output.Format(cmd.Flag("format").Value.String())
+			w := f.NewWriter(format)
+			var data interface{}
+			if err := json.Unmarshal(resp, &data); err != nil {
+				return err
+			}
+			return w.Write(data)
+		},
+	}
+
+	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().IntVar(&version, "version", 0, "Data version number (required)")
+	cmd.Flags().IntVar(&basicDataId, "basic-data-id", 0, "Basic-data (table) ID")
+	cmd.Flags().StringVar(&filter, "filter", "", "Field-level exact match (JSON: {\"fieldId\":\"value\"})")
+	_ = cmd.MarkFlagRequired("schema-id")
+	_ = cmd.MarkFlagRequired("version")
+	return cmd
+}
+
 // ==================== table data delete ====================
 
 func newCmdTableDataDelete(f *cmdutil.Factory) *cobra.Command {
 	var id int64
 	var schemaId int
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Delete a table record",
+		Short: "Delete a table record (requires --yes)",
 		Long: `Delete a single record from a table.
 
-Internally wraps the batchDelete API with a single ID.
+Internally wraps the batchDelete API with a single ID. This is destructive
+and requires --yes to proceed.
 
 EXAMPLES:
-    # Delete a record by ID
-    lingtong-cli table data delete --schema-id 2546 --id 33832272`,
+    # Delete a record by ID (requires --yes)
+    lingtong-cli table data delete --schema-id 2546 --id 33832272 --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if id == 0 {
 				return fmt.Errorf("--id is required")
@@ -758,7 +900,10 @@ EXAMPLES:
 			if schemaId == 0 {
 				return fmt.Errorf("--schema-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.ConfirmDestructive(yes, "delete record"); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -785,6 +930,7 @@ EXAMPLES:
 
 	cmd.Flags().Int64Var(&id, "id", 0, "Record ID to delete (required)")
 	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm the destructive operation")
 	_ = cmd.MarkFlagRequired("id")
 	_ = cmd.MarkFlagRequired("schema-id")
 	return cmd
@@ -795,23 +941,22 @@ EXAMPLES:
 func newCmdTableDataBatchDelete(f *cmdutil.Factory) *cobra.Command {
 	var schemaId int
 	var ids string
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "batch-delete",
-		Short: "Batch delete table records",
-		Long: `Batch delete multiple records from a table.
+		Short: "Batch delete table records (requires --yes)",
+		Long: `Batch delete multiple records from a table. This is destructive
+and requires --yes to proceed.
 
 EXAMPLES:
-    # Batch delete records by IDs
-    lingtong-cli table data batch-delete --schema-id 2546 --ids "33832272,33832273,33832274"`,
+    # Batch delete records by IDs (requires --yes)
+    lingtong-cli table data batch-delete --schema-id 2546 --ids "33832272,33832273,33832274" --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if schemaId == 0 {
 				return fmt.Errorf("--schema-id is required")
 			}
 			if ids == "" {
 				return fmt.Errorf("--ids is required")
-			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
-				return err
 			}
 
 			// Parse comma-separated IDs
@@ -831,6 +976,13 @@ EXAMPLES:
 
 			if len(idList) == 0 {
 				return fmt.Errorf("no valid IDs provided")
+			}
+
+			if err := cmdutil.ConfirmDestructive(yes, fmt.Sprintf("delete %d records", len(idList))); err != nil {
+				return err
+			}
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
+				return err
 			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
@@ -856,6 +1008,7 @@ EXAMPLES:
 
 	cmd.Flags().IntVar(&schemaId, "schema-id", 0, "Schema ID (required)")
 	cmd.Flags().StringVar(&ids, "ids", "", "Comma-separated record IDs to delete (required)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm the destructive operation")
 	_ = cmd.MarkFlagRequired("schema-id")
 	_ = cmd.MarkFlagRequired("ids")
 	return cmd
@@ -894,7 +1047,7 @@ EXAMPLES:
 			if basicDataId == 0 {
 				return fmt.Errorf("--basic-data-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -960,7 +1113,7 @@ EXAMPLES:
 			if schema == "" && columnsSchema == "" {
 				return fmt.Errorf("either --schema or --columns-schema is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1083,7 +1236,7 @@ EXAMPLES:
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1143,7 +1296,7 @@ EXAMPLES:
 			if schemaId == 0 {
 				return fmt.Errorf("--schema-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1196,7 +1349,7 @@ EXAMPLES:
 			if schemaId == 0 {
 				return fmt.Errorf("--schema-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1256,7 +1409,7 @@ EXAMPLES:
 			if id == 0 {
 				return fmt.Errorf("--id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1304,7 +1457,7 @@ EXAMPLES:
 			if viewId == 0 {
 				return fmt.Errorf("--view-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1351,7 +1504,7 @@ EXAMPLES:
 			if schemaId == 0 {
 				return fmt.Errorf("--schema-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1421,7 +1574,7 @@ EXAMPLES:
 			if viewId == "" {
 				return fmt.Errorf("--view-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1471,7 +1624,7 @@ EXAMPLES:
 			if viewId == "" {
 				return fmt.Errorf("--view-id is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 
@@ -1528,7 +1681,7 @@ EXAMPLES:
 			if configStr == "" {
 				return fmt.Errorf("--config is required")
 			}
-			if err := requireHostConfigured(f.Config.Host); err != nil {
+			if err := cmdutil.RequireHostConfigured(f.Config.Host); err != nil {
 				return err
 			}
 

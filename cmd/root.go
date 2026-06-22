@@ -11,7 +11,6 @@ import (
 	"github.com/lingtong/cli/cmd/api"
 	"github.com/lingtong/cli/cmd/app"
 	"github.com/lingtong/cli/cmd/auth"
-	"github.com/lingtong/cli/cmd/basicdata"
 	"github.com/lingtong/cli/cmd/completion"
 	"github.com/lingtong/cli/cmd/config"
 	"github.com/lingtong/cli/cmd/connector"
@@ -167,7 +166,6 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.AddCommand(scene.NewCmdScene(f))
 	rootCmd.AddCommand(workflow.NewCmdWorkflow(f))
 	rootCmd.AddCommand(table.NewCmdTable(f))
-	rootCmd.AddCommand(basicdata.NewCmdBasicdata(f))
 	rootCmd.AddCommand(factory.NewCmdFactory(f))
 	rootCmd.AddCommand(model.NewCmdModel(f))
 	rootCmd.AddCommand(api.NewCmdApi(f))
@@ -187,6 +185,15 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	if spec, err := openapi.LoadSpec(); err == nil && spec != nil {
 		service.RegisterServiceCommands(rootCmd, f, spec)
 	}
+
+	// Deprecated: basicdata has been merged into 'table data'.
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "basicdata",
+		Short: "Deprecated: use 'table data' instead",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("'basicdata' command has been removed. Use 'table data' instead. Run 'lingtong-cli table data --help' for details")
+		},
+	})
 
 	// Register shortcuts
 	shortcuts.RegisterShortcuts(rootCmd, f)
