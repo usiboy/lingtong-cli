@@ -14,11 +14,24 @@ import (
 // When --envelope is enabled, every successful command output is wrapped
 // in this structure so that AI Agents can reliably parse results.
 type Envelope struct {
-	OK       bool                   `json:"ok"`
-	Identity string                 `json:"identity,omitempty"`
-	Data     interface{}            `json:"data,omitempty"`
-	Error    interface{}            `json:"error,omitempty"`
-	Notice   map[string]interface{} `json:"_notice,omitempty"`
+	OK       bool        `json:"ok"`
+	Identity string      `json:"identity,omitempty"`
+	Data     interface{} `json:"data,omitempty"`
+	Error    interface{} `json:"error,omitempty"`
+	Notice   *Notice     `json:"_notice,omitempty"`
+}
+
+// Notice carries optional system-level notifications injected into the envelope.
+// All fields are omitempty so the notice is absent when empty.
+type Notice struct {
+	Update       *UpdateNotice `json:"update,omitempty"`
+	Announcement string        `json:"announcement,omitempty"`
+}
+
+// UpdateNotice informs the user that a newer CLI version is available.
+type UpdateNotice struct {
+	Version string `json:"version"`
+	URL     string `json:"url,omitempty"`
 }
 
 // ErrorDetail is the structured error payload inside an envelope.

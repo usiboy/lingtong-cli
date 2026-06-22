@@ -21,6 +21,7 @@ func NewCmdConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdConfigInit(f))
 	cmd.AddCommand(newCmdConfigShow(f))
 	cmd.AddCommand(newCmdConfigDelete(f))
+	cmd.AddCommand(NewCmdProfile(f))
 
 	return cmd
 }

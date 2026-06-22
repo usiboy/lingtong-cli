@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -180,6 +181,7 @@ func TestPrintReportFormat(t *testing.T) {
 
 func TestCheckServiceSpec_Embedded(t *testing.T) {
 	t.Setenv("LINGTONG_OPENAPI", "")
+	t.Setenv("HOME", t.TempDir()) // isolate from any ~/.lingtong-cli/openapi.json
 	r := checkServiceSpec()
 	if r.Status != statusOK {
 		t.Errorf("Status = %v, want ok (embedded spec)", r.Status)
@@ -209,6 +211,78 @@ func TestCheckServiceSpec_GoodOverride(t *testing.T) {
 	r := checkServiceSpec()
 	if r.Status != statusOK {
 		t.Errorf("Status = %v, want ok for valid override", r.Status)
+	}
+	if !strings.Contains(r.Message, "override") {
+		t.Errorf("Message = %q, want it to mention override", r.Message)
+	}
+}
+
+func TestCheckServiceSpec_UnreadableEnv(t *testing.T) {
+	t.Setenv("LINGTONG_OPENAPI", "/definitely/not/here.json")
+	// os.Stat in OverridePath would skip a nonexistent env path, but doctor
+	// explicitly warns because the user set the variable.
+	r := checkServiceSpec()
+	if r.Status != statusWarn {
+		t.Errorf("Status = %v, want warn for unreadable env override", r.Status)
+	}
+	if !strings.Contains(r.Message, "LINGTONG_OPENAPI") {
+		t.Errorf("Message = %q, want it to name the env var", r.Message)
+	}
+}
+
+func TestNewCmdDoctor_Execute(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"result": {}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	var buf bytes.Buffer
+	f := newTestFactory(server.URL)
+	f.IOStreams.Out = &buf
+
+	cmd := NewCmdDoctor(f)
+	if cmd.Use != "doctor" {
+		t.Errorf("Use = %q, want doctor", cmd.Use)
+	}
+	cmd.SetArgs(nil)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("doctor execute error = %v", err)
+	}
+	for _, want := range []string{"CLI Version", "Service Spec"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("doctor report missing %q:\n%s", want, buf.String())
+		}
+	}
+}
+
+func TestCheckServiceSpec_HomeOverride(t *testing.T) {
+	src := "../../internal/openapi/spec/openapi.json"
+	if _, err := os.Stat(src); err != nil {
+		t.Skip("spec file not present")
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// No env override, but a ~/.lingtong-cli/openapi.json is present: doctor
+	// must report it (matching what `service`/`schema` actually load).
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("LINGTONG_OPENAPI", "")
+	dir := filepath.Join(home, ".lingtong-cli")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "openapi.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := checkServiceSpec()
+	if r.Status != statusOK {
+		t.Errorf("Status = %v, want ok for home override", r.Status)
 	}
 	if !strings.Contains(r.Message, "override") {
 		t.Errorf("Message = %q, want it to mention override", r.Message)

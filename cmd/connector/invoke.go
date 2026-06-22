@@ -73,7 +73,7 @@ return result;`
 			{
 				"id": "w_start_first", "type": "w_start",
 				"dragging": false, "width": 256, "height": 92,
-				"position":          map[string]int{"x": 100, "y": 100},
+				"position":         map[string]int{"x": 100, "y": 100},
 				"positionAbsolute": map[string]int{"x": 100, "y": 100},
 				"selected":         false,
 				"data": map[string]interface{}{
@@ -100,7 +100,7 @@ return result;`
 			{
 				"id": "w_script_invoke", "type": "w_script",
 				"dragging": false, "width": 256, "height": 58,
-				"position":          map[string]int{"x": 416, "y": 100},
+				"position":         map[string]int{"x": 416, "y": 100},
 				"positionAbsolute": map[string]int{"x": 416, "y": 100},
 				"selected":         false,
 				"data": map[string]interface{}{
@@ -123,7 +123,7 @@ return result;`
 			{
 				"id": "w_end_result", "type": "w_end",
 				"dragging": false, "width": 256, "height": 92,
-				"position":          map[string]int{"x": 732, "y": 100},
+				"position":         map[string]int{"x": 732, "y": 100},
 				"positionAbsolute": map[string]int{"x": 732, "y": 100},
 				"selected":         false,
 				"data": map[string]interface{}{
@@ -131,9 +131,9 @@ return result;`
 					"pids": []string{"w_script_invoke"},
 					"outputVariables": []map[string]interface{}{
 						{"variable": "result", "variableAttr": map[string]interface{}{
-							"dataType": "json",
-							"value":    "$w_script_invoke.result",
-							"nodeId":   "w_end_result",
+							"dataType":  "json",
+							"value":     "$w_script_invoke.result",
+							"nodeId":    "w_end_result",
 							"schemaObj": map[string]interface{}{"fullPath": "", "schemaNodeVariable": "result", "schemaNodeId": "w_script_invoke"},
 						}},
 					},

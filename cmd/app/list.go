@@ -60,8 +60,8 @@ EXAMPLES:
 			}
 
 			var envelope struct {
-				Success *bool   `json:"success"`
-				Msg     string  `json:"msg"`
+				Success *bool       `json:"success"`
+				Msg     string      `json:"msg"`
 				Data    interface{} `json:"-"`
 			}
 			var raw map[string]interface{}

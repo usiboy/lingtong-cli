@@ -506,9 +506,9 @@ func TestNewCmdTableCreate_ProxyPath(t *testing.T) {
 			writeProxyResponse(t, w, map[string]interface{}{
 				"success": true,
 				"result": map[string]interface{}{
-					"id":           2545,
-					"basicDataId":  1630,
-					"version":      1,
+					"id":            2545,
+					"basicDataId":   1630,
+					"version":       1,
 					"columnsSchema": proxyReq.Body["columnsSchema"],
 				},
 			})
@@ -1681,13 +1681,13 @@ func TestNewCmdTableUpdate_ProxyPath(t *testing.T) {
 			writeProxyResponse(t, w, map[string]interface{}{
 				"success": true,
 				"result": map[string]interface{}{
-					"id":             float64(1568),
-					"appId":          float64(165),
-					"name":           "快麦出入库记录",
-					"source":         float64(1),
-					"type":           float64(1),
-					"openHighMode":   float64(1),
-					"openConnector":  float64(1),
+					"id":            float64(1568),
+					"appId":         float64(165),
+					"name":          "快麦出入库记录",
+					"source":        float64(1),
+					"type":          float64(1),
+					"openHighMode":  float64(1),
+					"openConnector": float64(1),
 				},
 			})
 			return

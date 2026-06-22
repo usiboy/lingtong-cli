@@ -4,9 +4,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/lingtong/cli/cmd/api"
 	"github.com/lingtong/cli/cmd/app"
@@ -19,12 +19,16 @@ import (
 	"github.com/lingtong/cli/cmd/factory"
 	"github.com/lingtong/cli/cmd/model"
 	"github.com/lingtong/cli/cmd/scene"
+	"github.com/lingtong/cli/cmd/schema"
 	"github.com/lingtong/cli/cmd/service"
 	"github.com/lingtong/cli/cmd/table"
+	"github.com/lingtong/cli/cmd/update"
 	"github.com/lingtong/cli/cmd/workflow"
+	ltauth "github.com/lingtong/cli/internal/auth"
 	"github.com/lingtong/cli/internal/build"
 	"github.com/lingtong/cli/internal/cmdutil"
 	lterrors "github.com/lingtong/cli/internal/errors"
+	"github.com/lingtong/cli/internal/notice"
 	"github.com/lingtong/cli/internal/openapi"
 	"github.com/lingtong/cli/internal/output"
 	"github.com/lingtong/cli/shortcuts"
@@ -99,8 +103,29 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 
 	cmdutil.InstallHelpFunc(rootCmd)
 	rootCmd.SilenceErrors = true
+
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		cmd.SilenceUsage = true
+
+		// Resolve --profile flag
+		if profileName, _ := cmd.Flags().GetString("profile"); profileName != "" {
+			f.Profile = profileName
+		}
+		// Apply profile: override host/brand from profile
+		if host, brand := f.Config.ResolveProfile(f.Profile); host != "" {
+			f.Config.Host = host
+			if brand != "" {
+				f.Config.Brand = brand
+			}
+		}
+		// Load the profile-scoped token so switching profiles also switches
+		// credentials. An explicit LINGTONG_TOKEN env var always wins, and the
+		// default-profile token loaded in NewDefault is left untouched.
+		if effective := f.EffectiveProfile(); effective != "" && os.Getenv("LINGTONG_TOKEN") == "" {
+			if token, err := ltauth.GetTokenForProfile(effective); err == nil && token != "" {
+				f.Config.Token = token
+			}
+		}
 
 		// Only override OmitNull if the flag was explicitly set by the user
 		if cmd.Flags().Changed("omit-null") {
@@ -122,6 +147,17 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 			}
 			f.JqExpr = jqExpr
 		}
+
+		// Start a best-effort, non-blocking notice fetch (only when envelope is
+		// enabled). The result is injected into output if it is ready by the
+		// time we write; it never delays the command (see Factory.NewWriter).
+		if f.Envelope {
+			ch := make(chan *output.Notice, 1)
+			go func() {
+				ch <- notice.FetchNotices(context.Background())
+			}()
+			f.NoticeChan = ch
+		}
 	}
 
 	// Register subcommands
@@ -141,10 +177,14 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.AddCommand(completion.NewCmdCompletion(f))
 	rootCmd.AddCommand(doctor.NewCmdDoctor(f))
 
+	// Register P2 enhancement commands
+	rootCmd.AddCommand(schema.NewCmdSchema(f))
+	rootCmd.AddCommand(update.NewCmdUpdate(f))
+
 	// Register P0.5 auto-generated service commands.
 	// The spec is loaded from a runtime override if present, otherwise from
 	// the copy embedded in the binary, so `service` works out of the box.
-	if spec, err := loadOpenAPISpec(); err == nil && spec != nil {
+	if spec, err := openapi.LoadSpec(); err == nil && spec != nil {
 		service.RegisterServiceCommands(rootCmd, f, spec)
 	}
 
@@ -155,6 +195,7 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.PersistentFlags().Bool("omit-null", true, "Omit null fields in JSON output (default: true)")
 	rootCmd.PersistentFlags().Bool("envelope", false, "Wrap output in standard envelope {ok, data, error}")
 	rootCmd.PersistentFlags().StringP("jq", "q", "", "jq expression to filter output (implies JSON output)")
+	rootCmd.PersistentFlags().String("profile", "", "Use a named configuration profile (e.g., dev, staging, prod)")
 
 	return rootCmd
 }
@@ -198,38 +239,6 @@ func formatFlag(cmd *cobra.Command) output.Format {
 	}
 }
 
-// loadOpenAPISpec returns the OpenAPI spec used to generate `service` commands.
-// Resolution order (first hit wins):
-//  1. LINGTONG_OPENAPI environment variable (explicit override / freshest)
-//  2. ~/.lingtong-cli/openapi.json (user-managed override)
-//  3. the spec embedded in the binary at build time (default, zero-config)
-//
-// A malformed override falls through to the next source rather than disabling
-// service commands entirely.
-func loadOpenAPISpec() (*openapi.Spec, error) {
-	if path := findOpenAPISpecOverride(); path != "" {
-		if spec, err := openapi.Parse(path); err == nil {
-			return spec, nil
-		}
-	}
-	if openapi.HasEmbeddedSpec() {
-		return openapi.EmbeddedSpec()
-	}
-	return nil, nil
-}
-
-// findOpenAPISpecOverride returns a user-supplied spec path, or "" if none.
-func findOpenAPISpecOverride() string {
-	if path := os.Getenv("LINGTONG_OPENAPI"); path != "" {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		path := filepath.Join(home, ".lingtong-cli", "openapi.json")
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return ""
-}
+// The OpenAPI spec used to generate `service` commands is resolved by
+// openapi.LoadSpec (env override → ~/.lingtong-cli/openapi.json → embedded),
+// shared with the `schema` and `doctor` commands so they all agree on the API.

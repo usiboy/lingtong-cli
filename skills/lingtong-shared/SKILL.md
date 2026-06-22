@@ -1,7 +1,7 @@
 ---
 name: lingtong-shared
-version: 1.0.0
-description: "绫通 CLI 共享基础：配置初始化 (config init)、认证登录 (auth login)、Token 管理、安全规则。当用户需要第一次配置、登录、遇到权限问题或首次使用 lingtong-cli 时触发。"
+version: 1.1.0
+description: "绫通 CLI 共享基础：配置初始化 (config init)、认证登录 (auth login)、Token 管理、安全规则、多环境 Profile、API 文档浏览 (schema)、版本更新 (update)、系统通知。当用户需要第一次配置、登录、遇到权限问题、切换 dev/staging/prod 环境、浏览 API、检查更新或首次使用 lingtong-cli 时触发。关键词：config、profile、schema、update、notice、多环境。"
 ---
 
 # lingtong-cli 共享规则
@@ -193,4 +193,62 @@ lingtong-cli completion powershell > lingtong-cli.ps1
 lingtong-cli doctor
 ```
 
-检查项：CLI 版本、配置文件、host 格式、认证状态（token 脱敏显示）、API 端点可达性与延迟、相关环境变量。
+检查项：CLI 版本、配置文件、host 格式、认证状态（token 脱敏显示）、API 端点可达性与延迟、相关环境变量,以及 **Service Spec 来源**(env 覆盖 / `~/.lingtong-cli/openapi.json` / 内嵌 + operation 数)。
+
+## 多环境 Profile (config profile)
+
+用 Profile 在 dev / staging / prod 之间切换。**每个 Profile 携带独立的 host、brand 和 Token**(Token 存各自的 Keychain 账户,切换 Profile 即切换凭据)。
+
+```bash
+# 新增 Profile(可选 --token 存入该环境专属凭据)
+lingtong-cli config profile add --name prod --host https://api.example.com --token apk-xxxx
+lingtong-cli config profile add --name dev  --host https://dev.example.com
+
+# 列出 / 查看当前
+lingtong-cli config profile list
+lingtong-cli config profile current
+
+# 持久切换当前 Profile
+lingtong-cli config profile use prod
+
+# 单条命令临时指定 Profile(不改持久状态)
+lingtong-cli scene list --profile dev
+
+# 删除(破坏性,需 --yes;会一并清理该 Profile 的 Token;不能删当前激活的 Profile)
+lingtong-cli config profile remove --name dev --yes
+```
+
+**解析优先级**:`--profile` 标志 > 持久的 `currentProfile` > 顶层配置。`LINGTONG_TOKEN` 环境变量始终覆盖 Profile Token。
+
+## API 文档浏览 (schema)
+
+离线浏览内嵌 OpenAPI(与 `service` / `doctor` 共用同一份 spec,可被 `LINGTONG_OPENAPI` 或 `~/.lingtong-cli/openapi.json` 覆盖):
+
+```bash
+lingtong-cli schema list                 # 按模块分组列出所有路径
+lingtong-cli schema path /scene/list      # 某路径的方法/参数/类型(路径无前导斜杠也可)
+lingtong-cli schema module scene          # 某模块下全部操作
+lingtong-cli schema search "场景"         # 按 summary/description/path 关键词搜索
+```
+
+## 版本更新 (update)
+
+```bash
+lingtong-cli update            # 检查并显示更新指引(npm / go install / 二进制)
+lingtong-cli update --check    # 仅检查是否有新版本
+lingtong-cli update --version v1.3.0   # 指定目标版本的更新指引
+```
+
+检查端点可用 `LINGTONG_UPDATE_URL` 覆盖。网络失败时优雅降级为手动检查指引。
+
+### 系统通知 (_notice)
+
+开启 `--envelope` 时,信封可能带 `_notice` 字段(如有新版本可用)。通知抓取是**非阻塞**的(后台进行,就绪才注入,绝不拖慢命令),并按 24h 在 `~/.lingtong-cli/notice-cache.json` 缓存,避免每次联网。
+
+```json
+{
+  "ok": true,
+  "data": { "...": "..." },
+  "_notice": { "update": { "version": "v1.3.0", "url": "https://.../tag/v1.3.0" } }
+}
+```

@@ -33,7 +33,7 @@ func TestNewCmdConfig(t *testing.T) {
 
 	// Verify subcommands are registered
 	subcommands := cmd.Commands()
-	assert.Len(t, subcommands, 3)
+	assert.Len(t, subcommands, 4)
 
 	cmdNames := make([]string, len(subcommands))
 	for i, c := range subcommands {
@@ -42,6 +42,7 @@ func TestNewCmdConfig(t *testing.T) {
 	assert.Contains(t, cmdNames, "init")
 	assert.Contains(t, cmdNames, "show")
 	assert.Contains(t, cmdNames, "delete")
+	assert.Contains(t, cmdNames, "profile")
 }
 
 // TestNewCmdConfigInit_Structure tests the init command structure
@@ -302,10 +303,11 @@ func TestLoad_NonExistentConfig(t *testing.T) {
 	cfg, err := internalconfig.Load()
 	require.NoError(t, err)
 
-	// Should return empty config, not error
-	assert.Equal(t, "", cfg.Host)
+	// Should return default config (not error) when no file exists.
+	assert.Equal(t, internalconfig.DefaultHost, cfg.Host)
 	assert.Equal(t, "", cfg.Brand)
 	assert.Equal(t, "", cfg.Token)
+	assert.True(t, cfg.OmitNull)
 }
 
 // TestConfig_SaveAndLoad tests saving and loading configuration

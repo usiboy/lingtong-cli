@@ -31,9 +31,10 @@ type Writer struct {
 	out      io.Writer
 	errOut   io.Writer
 	omitNull bool
-	envelope bool   // wrap output in {ok, data, error} envelope
-	identity string // command identity for envelope (e.g. "connector.info")
-	jqExpr   string // jq expression to apply to output
+	envelope bool    // wrap output in {ok, data, error} envelope
+	identity string  // command identity for envelope (e.g. "connector.info")
+	jqExpr   string  // jq expression to apply to output
+	notice   *Notice // optional system notice to inject into envelope
 }
 
 // WriterOption configures a Writer.
@@ -58,6 +59,13 @@ func WithJq(expr string) WriterOption {
 func WithOmitNull(omit bool) WriterOption {
 	return func(w *Writer) {
 		w.omitNull = omit
+	}
+}
+
+// WithNotice sets the system notice to include in the envelope.
+func WithNotice(n *Notice) WriterOption {
+	return func(w *Writer) {
+		w.notice = n
 	}
 }
 
@@ -112,6 +120,7 @@ func (w *Writer) Write(data interface{}) error {
 			OK:       true,
 			Identity: w.identity,
 			Data:     data,
+			Notice:   w.notice,
 		}
 	}
 

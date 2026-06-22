@@ -68,36 +68,36 @@ func TestNewCmdConnectorInfo(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		
+
 		if r.URL.Path != "/gw/ai/proxy" {
 			t.Errorf("expected /gw/ai/proxy, got %s", r.URL.Path)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		
+
 		auth := r.Header.Get("Authorization")
 		if auth != "Bearer apk-test123" {
 			t.Errorf("expected Bearer token, got %s", auth)
 		}
-		
+
 		var proxyReq map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&proxyReq); err != nil {
 			t.Errorf("failed to decode request body: %v", err)
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		
+
 		proxiedPath, ok := proxyReq["path"].(string)
 		if !ok {
 			t.Errorf("missing or invalid 'path' field in request")
 			http.Error(w, "missing path", http.StatusBadRequest)
 			return
 		}
-		
+
 		if !strings.Contains(proxiedPath, "/gw/ai/connector/info") {
 			t.Errorf("expected proxied path to contain /gw/ai/connector/info, got %s", proxiedPath)
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"success":true,"data":{"name":"kmerp"}}`))
 	}))

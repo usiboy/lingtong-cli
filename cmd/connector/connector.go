@@ -298,7 +298,7 @@ EXAMPLES:
 			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
-			
+
 			// Get account details first
 			getPath := fmt.Sprintf("/gw/account/get2?id=%d", accountId)
 			getResp, err := c.Get(getPath, nil)
@@ -396,10 +396,10 @@ EXAMPLES:
 
 			// Build request body
 			body := map[string]interface{}{
-				"connector": connector,
-				"name":      name,
-				"env":       env,
-				"open":      1,
+				"connector":                 connector,
+				"name":                      name,
+				"env":                       env,
+				"open":                      1,
 				"ltAuthAccountFieldDtoList": fields,
 			}
 
@@ -558,12 +558,12 @@ EXAMPLES:
 
 			// Display results
 			w := f.NewWriter(output.Format(cmd.Flag("format").Value.String()))
-			
+
 			if allAuthorized {
 				fmt.Fprintf(f.IOStreams.Out, "✓ All connectors are properly authorized\n\n")
 			} else {
 				fmt.Fprintf(f.IOStreams.Out, "⚠ Some connectors are missing authorization:\n\n")
-				
+
 				for _, r := range results {
 					if authorized, _ := r["authorized"].(bool); !authorized {
 						connector := r["connector"].(string)

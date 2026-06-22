@@ -65,11 +65,20 @@ func runChecks(f *cmdutil.Factory) []checkResult {
 }
 
 func checkServiceSpec() checkResult {
-	if override := os.Getenv("LINGTONG_OPENAPI"); override != "" {
-		if spec, err := openapi.Parse(override); err == nil {
-			return checkResult{"Service Spec", statusOK, fmt.Sprintf("override LINGTONG_OPENAPI (%d operations)", countOperations(spec))}
+	// Surface a misconfigured explicit override as a diagnostic warning, since
+	// the user clearly intended to use it.
+	if env := os.Getenv("LINGTONG_OPENAPI"); env != "" {
+		if spec, err := openapi.Parse(env); err == nil {
+			return checkResult{"Service Spec", statusOK, fmt.Sprintf("override %s (%d operations)", env, countOperations(spec))}
 		}
-		return checkResult{"Service Spec", statusWarn, fmt.Sprintf("LINGTONG_OPENAPI set but unreadable: %s", override)}
+		return checkResult{"Service Spec", statusWarn, fmt.Sprintf("LINGTONG_OPENAPI set but unreadable: %s", env)}
+	}
+	// Otherwise report the same source `service` and `schema` resolve to.
+	if override := openapi.OverridePath(); override != "" {
+		if spec, err := openapi.Parse(override); err == nil {
+			return checkResult{"Service Spec", statusOK, fmt.Sprintf("override %s (%d operations)", override, countOperations(spec))}
+		}
+		return checkResult{"Service Spec", statusWarn, fmt.Sprintf("override set but unreadable: %s", override)}
 	}
 	if openapi.HasEmbeddedSpec() {
 		if spec, err := openapi.EmbeddedSpec(); err == nil {

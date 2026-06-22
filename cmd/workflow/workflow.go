@@ -1130,7 +1130,7 @@ func validateDSL(dsl map[string]interface{}, strict bool) map[string]interface{}
 		if nodeType != "" && !validNodeTypes[nodeType] {
 			errors = append(errors, fmt.Sprintf("Invalid node type '%s'", nodeType))
 		}
-		if (nodeType == "w_connector" || nodeType == "w_modePipe") {
+		if nodeType == "w_connector" || nodeType == "w_modePipe" {
 			if data, ok := node["data"].(map[string]interface{}); ok {
 				if _, has := data["connector"]; !has {
 					errors = append(errors, fmt.Sprintf("Node '%s' missing 'connector'", id))
@@ -1542,7 +1542,7 @@ func analyzeDeps(dsl map[string]interface{}) map[string]interface{} {
 			}
 			nodeType, _ := node["type"].(string)
 			nodeId, _ := node["id"].(string)
-			if (nodeType == "w_connector" || nodeType == "w_modePipe") {
+			if nodeType == "w_connector" || nodeType == "w_modePipe" {
 				if data, ok := node["data"].(map[string]interface{}); ok {
 					conn := map[string]interface{}{
 						"nodeId": nodeId, "nodeType": nodeType, "connector": data["connector"],

@@ -354,11 +354,11 @@ EXAMPLES:
 
 			// Build update body with current values as defaults
 			body := map[string]interface{}{
-				"id":    id,
-				"appId": current["appId"],
-				"name":  current["name"],
+				"id":     id,
+				"appId":  current["appId"],
+				"name":   current["name"],
 				"source": current["source"],
-				"type":  current["type"],
+				"type":   current["type"],
 			}
 
 			// Apply overrides

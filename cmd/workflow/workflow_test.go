@@ -609,9 +609,9 @@ func TestValidateDSL_ExtendedEdgeCases(t *testing.T) {
 
 func TestAnalyzeDeps_ExtendedCases(t *testing.T) {
 	tests := []struct {
-		name           string
-		dsl            map[string]interface{}
-		expectConns    int
+		name          string
+		dsl           map[string]interface{}
+		expectConns   int
 		expectScripts int
 	}{
 		{
@@ -635,8 +635,8 @@ func TestAnalyzeDeps_ExtendedCases(t *testing.T) {
 			expectConns: 0, expectScripts: 0,
 		},
 		{
-			name: "missing nodes field",
-			dsl: map[string]interface{}{"edges": []interface{}{}},
+			name:        "missing nodes field",
+			dsl:         map[string]interface{}{"edges": []interface{}{}},
 			expectConns: 0, expectScripts: 0,
 		},
 	}
@@ -1227,7 +1227,6 @@ func TestNewCmdWorkflowExecute_WithParams(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
-
 
 func TestNewCmdWorkflowExecute_InvalidParams(t *testing.T) {
 	f := newTestFactory("http://example.com")

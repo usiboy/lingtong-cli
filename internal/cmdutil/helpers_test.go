@@ -112,3 +112,62 @@ func TestNewDefault(t *testing.T) {
 		t.Error("NewDefault did not wire IO streams")
 	}
 }
+
+func TestEffectiveProfile(t *testing.T) {
+	// --profile flag wins.
+	f := &Factory{Profile: "flagged", Config: &config.Config{CurrentProfile: "persisted"}}
+	if got := f.EffectiveProfile(); got != "flagged" {
+		t.Errorf("EffectiveProfile = %q, want flagged", got)
+	}
+
+	// Falls back to persisted CurrentProfile.
+	f = &Factory{Config: &config.Config{CurrentProfile: "persisted"}}
+	if got := f.EffectiveProfile(); got != "persisted" {
+		t.Errorf("EffectiveProfile = %q, want persisted", got)
+	}
+
+	// Empty when nothing set.
+	f = &Factory{Config: &config.Config{}}
+	if got := f.EffectiveProfile(); got != "" {
+		t.Errorf("EffectiveProfile = %q, want empty", got)
+	}
+
+	// Safe with nil config.
+	f = &Factory{}
+	if got := f.EffectiveProfile(); got != "" {
+		t.Errorf("EffectiveProfile with nil config = %q, want empty", got)
+	}
+}
+
+func TestNewWriterNoticeReady(t *testing.T) {
+	var buf bytes.Buffer
+	ch := make(chan *output.Notice, 1)
+	ch <- &output.Notice{Announcement: "hello"}
+	f := &Factory{
+		Config:     &config.Config{},
+		IOStreams:  &output.IOStreams{Out: &buf},
+		Envelope:   true,
+		NoticeChan: ch,
+	}
+	// Notice is ready on the channel, so it should be consumed.
+	_ = f.NewWriter(output.FormatJSON, "x.y")
+	if f.Notice == nil || f.Notice.Announcement != "hello" {
+		t.Errorf("expected ready notice to be consumed, got %v", f.Notice)
+	}
+}
+
+func TestNewWriterNoticeNotReady(t *testing.T) {
+	var buf bytes.Buffer
+	ch := make(chan *output.Notice, 1) // empty: not ready
+	f := &Factory{
+		Config:     &config.Config{},
+		IOStreams:  &output.IOStreams{Out: &buf},
+		Envelope:   true,
+		NoticeChan: ch,
+	}
+	// Must not block; notice stays nil.
+	_ = f.NewWriter(output.FormatJSON, "x.y")
+	if f.Notice != nil {
+		t.Errorf("expected no notice when channel not ready, got %v", f.Notice)
+	}
+}
