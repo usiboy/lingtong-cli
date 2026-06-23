@@ -222,3 +222,42 @@ $w_modePipe_725vx.orders[*]       # 数组遍历
 - 至少有一个 `w_end` 节点
 - 边的 `source`/`target` 必须引用存在的节点 ID
 - `w_connector`/`w_modePipe` 节点必须配置 `connector` 字段
+- **每个 `w_script` 节点的 `data` 必须配置 `assertConfig`**（如 `{"assertType":"throwException"}`），
+  否则保存/发布能过，但执行时报 `断言配置不允许为null`
+
+## 持久化与保存（重要：避免 buildFlowSource NPE）
+
+通过 API/CLI 创建工作流后必须用**正确的接口**保存节点图，否则节点不会被持久化，
+发布后执行会在后端 `buildFlowSource` 处抛 `NullPointerException`。
+
+| 接口 | 作用 | 是否保存节点图 |
+|------|------|----------------|
+| `/workflow/update` | 修改工作流**配置**信息 | ✅ 是（DSL 通过 `content` 字符串字段） |
+| `/workflow/update/basic` | 修改工作流**基础**信息（name/env/memo） | ❌ 否 |
+
+`/workflow/update` 请求体（`WorkflowUpdateCmd`）关键点：
+
+```jsonc
+{
+  "workflowId": 1016,
+  "appId": 165,
+  "name": "工作流名称",
+  "env": "test",
+  "content": "<整段 DSL 序列化成的 JSON 字符串>",  // 注意：是字符串，不是对象
+  "ts": "1782125248000",                          // 乐观锁版本号，取自 /workflow/get 的 result.ts
+  "forced": true
+}
+```
+
+**用 CLI（推荐，已封装上述细节）**：
+
+```bash
+# update 会自动 GET 现有 appId/env/name/ts，再以 content 字符串提交 /workflow/update
+lingtong-cli workflow update --workflow-id 1016 --dsl-file workflow.json
+
+# create 为两步：/workflow/create 建壳 → /workflow/update 写 DSL（需 --app-id）
+lingtong-cli workflow create --app-id 165 --name "我的工作流" --dsl-file workflow.json
+```
+
+**保存后自检**：用 `lingtong-cli workflow info --workflow-id <id>` 确认
+`result.content` 内节点数正确，且 `lastPublishInfo` 的 `nodeDtoList` 非空、`bpmnFlowInfoDto` 存在。

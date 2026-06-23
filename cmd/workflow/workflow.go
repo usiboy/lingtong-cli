@@ -7,12 +7,62 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/lingtong/cli/internal/client"
 	"github.com/lingtong/cli/internal/cmdutil"
 	"github.com/lingtong/cli/internal/output"
 	"github.com/spf13/cobra"
 )
+
+// fetchWorkflowMeta retrieves the persisted metadata (appId/env/name/ts) for an
+// existing workflow. The /workflow/update endpoint requires these fields plus
+// the DSL as a `content` string; without them the node graph is silently
+// dropped, which is the root cause of the buildFlowSource NPE on API-created
+// workflows.
+func fetchWorkflowMeta(c *client.Client, workflowId int) (map[string]interface{}, error) {
+	resp, err := c.Get(fmt.Sprintf("/gw/workflow/get?workflowId=%d", workflowId), nil)
+	if err != nil {
+		return nil, err
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(resp, &parsed); err != nil {
+		return nil, err
+	}
+	result, _ := parsed["result"].(map[string]interface{})
+	if result == nil {
+		return nil, fmt.Errorf("workflow %d not found", workflowId)
+	}
+	return result, nil
+}
+
+// tsToString normalises a workflow `ts` (version token) to the string form the
+// update endpoint expects, regardless of how JSON decoded the number.
+func tsToString(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatInt(int64(t), 10)
+	case json.Number:
+		return t.String()
+	}
+	return ""
+}
+
+// metaInt extracts an integer field (e.g. appId) from decoded JSON.
+func metaInt(v interface{}) int {
+	switch t := v.(type) {
+	case float64:
+		return int(t)
+	case int:
+		return t
+	case json.Number:
+		n, _ := t.Int64()
+		return int(n)
+	}
+	return 0
+}
 
 // NewCmdWorkflow creates the workflow command.
 func NewCmdWorkflow(f *cmdutil.Factory) *cobra.Command {
@@ -511,31 +561,39 @@ EXAMPLES:
 
 func newCmdWorkflowCreate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, env, dslFile, dslString, template string
+	var appId int
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new workflow",
-		Long: `Create a new workflow with DSL definition.
+		Long: `Create a new workflow, optionally seeding its DSL.
 
-You can provide DSL via --dsl-file, --dsl-string, or use a built-in --template.
+Creation is two steps, matching the platform API: /workflow/create makes the
+shell (appId/name/env) and returns the new workflow id; when DSL is supplied it
+is then persisted through /workflow/update as the 'content' string so the full
+node graph is saved.
+
+Provide DSL via --dsl-file, --dsl-string, or a built-in --template.
 
 EXAMPLES:
+    # Create an empty workflow shell
+    lingtong-cli workflow create --app-id 165 --name "My Workflow"
+
     # Create with DSL file
-    lingtong-cli workflow create --name "My Workflow" --dsl-file workflow.json
+    lingtong-cli workflow create --app-id 165 --name "My Workflow" --dsl-file workflow.json
 
-    # Create with DSL string
-    lingtong-cli workflow create --name "My Workflow" --dsl-string '{"nodes":[...],"edges":[...]}'
-
-    # Create with built-in template
-    lingtong-cli workflow create --name "Simple Workflow" --template simple`,
+    # Create with a built-in template
+    lingtong-cli workflow create --app-id 165 --name "Simple Workflow" --template simple`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
+			if appId == 0 {
+				return fmt.Errorf("--app-id is required")
+			}
 
-			// Get DSL from file, string, or template
+			// Get DSL from file, string, or template (optional).
 			var dslContent string
 			if dslFile != "" {
-				// Read from file
 				data, err := readFile(dslFile)
 				if err != nil {
 					return fmt.Errorf("failed to read DSL file: %w", err)
@@ -546,44 +604,66 @@ EXAMPLES:
 			} else if template != "" {
 				dslContent = getWorkflowTemplate(template, name, env)
 				if dslContent == "" {
-					return fmt.Errorf("unknown template: %s (available: simple, connector)", template)
+					return fmt.Errorf("unknown template: %s (available: simple, connector, order_sync, approval, data_pipeline, api_wrapper)", template)
 				}
-			} else {
-				return fmt.Errorf("one of --dsl-file, --dsl-string, or --template is required")
 			}
-
-			// Parse DSL to validate
-			var dsl map[string]interface{}
-			if err := json.Unmarshal([]byte(dslContent), &dsl); err != nil {
-				return fmt.Errorf("invalid DSL JSON: %w", err)
-			}
-
-			// Build request body
-			body := map[string]interface{}{
-				"id":   nil, // null for create
-				"name": name,
-				"dsl":  dsl,
-			}
-
-			if description != "" {
-				body["description"] = description
-			}
-			if env != "" {
-				body["env"] = env
+			if dslContent != "" {
+				var dsl map[string]interface{}
+				if err := json.Unmarshal([]byte(dslContent), &dsl); err != nil {
+					return fmt.Errorf("invalid DSL JSON: %w", err)
+				}
 			}
 
 			c := client.NewClient(f.Config.Host, f.Config.Token)
-			path := "/gw/workflow/update"
 
-			resp, err := c.Post(path, body)
+			// Step 1: create the shell.
+			createBody := map[string]interface{}{
+				"appId": appId,
+				"name":  name,
+			}
+			if env != "" {
+				createBody["env"] = env
+			}
+			if description != "" {
+				createBody["memo"] = description
+			}
+			createResp, err := c.Post("/gw/workflow/create", createBody)
 			if err != nil {
 				return fmt.Errorf("failed to create workflow: %w", err)
 			}
 
 			format := output.Format(cmd.Flag("format").Value.String())
 			w := f.NewWriter(format)
+
+			// No DSL: return the create response as-is.
+			if dslContent == "" {
+				var data interface{}
+				if err := json.Unmarshal(createResp, &data); err != nil {
+					return err
+				}
+				return w.Write(data)
+			}
+
+			// Step 2: persist the DSL via the config endpoint.
+			newID, ts := newWorkflowIDFromCreate(createResp)
+			if newID == 0 {
+				return fmt.Errorf("workflow created but new id not found in response; DSL not persisted")
+			}
+			updateBody := map[string]interface{}{
+				"workflowId": newID,
+				"content":    dslContent,
+				"name":       name,
+				"env":        env,
+				"appId":      appId,
+				"ts":         ts,
+				"forced":     true,
+			}
+			updateResp, err := c.Post("/gw/workflow/update", updateBody)
+			if err != nil {
+				return fmt.Errorf("workflow %d created but DSL update failed: %w", newID, err)
+			}
 			var data interface{}
-			if err := json.Unmarshal(resp, &data); err != nil {
+			if err := json.Unmarshal(updateResp, &data); err != nil {
 				return err
 			}
 			return w.Write(data)
@@ -591,28 +671,61 @@ EXAMPLES:
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Workflow name (required)")
+	cmd.Flags().IntVar(&appId, "app-id", 0, "Application ID (required)")
 	cmd.Flags().StringVar(&description, "description", "", "Workflow description")
-	cmd.Flags().StringVar(&env, "env", "", "Environment")
+	cmd.Flags().StringVar(&env, "env", "", "Environment (test/formal)")
 	cmd.Flags().StringVar(&dslFile, "dsl-file", "", "Path to DSL JSON file")
 	cmd.Flags().StringVar(&dslString, "dsl-string", "", "DSL JSON string")
-	cmd.Flags().StringVar(&template, "template", "", "Built-in template (simple, connector)")
+	cmd.Flags().StringVar(&template, "template", "", "Built-in template (simple, connector, order_sync, approval, data_pipeline, api_wrapper)")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
+// newWorkflowIDFromCreate extracts the new workflow id and ts from a
+// /workflow/create response, tolerating the id living either directly on the
+// result or on a nested workflow object.
+func newWorkflowIDFromCreate(resp []byte) (int, string) {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(resp, &parsed); err != nil {
+		return 0, ""
+	}
+	result, _ := parsed["result"].(map[string]interface{})
+	if result == nil {
+		return 0, ""
+	}
+	if id := metaInt(result["id"]); id != 0 {
+		return id, tsToString(result["ts"])
+	}
+	// Some responses nest the workflow under a typed object.
+	for _, v := range result {
+		if obj, ok := v.(map[string]interface{}); ok {
+			if id := metaInt(obj["id"]); id != 0 {
+				return id, tsToString(obj["ts"])
+			}
+		}
+	}
+	return 0, ""
+}
+
 func newCmdWorkflowUpdate(f *cmdutil.Factory) *cobra.Command {
 	var workflowId int
-	var name, dslFile, dslString string
+	var name, env, dslFile, dslString string
 	var forced bool
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an existing workflow",
 		Long: `Update an existing workflow's DSL or metadata.
 
-You can provide DSL via --dsl-file or --dsl-string.
+You can provide DSL via --dsl-file or --dsl-string. The DSL is sent to the
+config endpoint (/workflow/update) as the 'content' string together with the
+workflow's appId/env/name/ts, so the full node graph is persisted. Updating
+only the name routes to /workflow/update/basic.
+
+IMPORTANT: pushing DSL through /workflow/update/basic (metadata only) silently
+drops the node graph and causes a buildFlowSource NPE at execution time.
 
 EXAMPLES:
-    # Update with DSL file
+    # Update with DSL file (persists the full node graph)
     lingtong-cli workflow update --workflow-id 100 --dsl-file workflow.json
 
     # Update name only
@@ -625,16 +738,8 @@ EXAMPLES:
 				return fmt.Errorf("--workflow-id is required")
 			}
 
-			// Build request body
-			body := map[string]interface{}{
-				"id": workflowId,
-			}
-
-			if name != "" {
-				body["name"] = name
-			}
-
-			// Get DSL from file or string
+			// Get DSL from file or string (kept as a raw string: the API stores
+			// the DSL as the 'content' string field, not a nested object).
 			var dslContent string
 			if dslFile != "" {
 				data, err := readFile(dslFile)
@@ -646,20 +751,52 @@ EXAMPLES:
 				dslContent = dslString
 			}
 
+			c := client.NewClient(f.Config.Host, f.Config.Token)
+
+			// The update endpoints require appId/env/name/ts that live on the
+			// persisted workflow, so fetch them and let flags override.
+			meta, err := fetchWorkflowMeta(c, workflowId)
+			if err != nil {
+				return fmt.Errorf("failed to load workflow %d: %w", workflowId, err)
+			}
+			effName := name
+			if effName == "" {
+				effName, _ = meta["name"].(string)
+			}
+			effEnv := env
+			if effEnv == "" {
+				effEnv, _ = meta["env"].(string)
+			}
+			appId := metaInt(meta["appId"])
+
+			var path string
+			var body map[string]interface{}
 			if dslContent != "" {
+				// Validate the DSL parses before sending.
 				var dsl map[string]interface{}
 				if err := json.Unmarshal([]byte(dslContent), &dsl); err != nil {
 					return fmt.Errorf("invalid DSL JSON: %w", err)
 				}
-				body["dsl"] = dsl
+				path = "/gw/workflow/update"
+				body = map[string]interface{}{
+					"workflowId": workflowId,
+					"content":    dslContent,
+					"name":       effName,
+					"env":        effEnv,
+					"appId":      appId,
+					"ts":         tsToString(meta["ts"]),
+					"forced":     forced,
+				}
+			} else {
+				// Metadata-only update.
+				path = "/gw/workflow/update/basic"
+				body = map[string]interface{}{
+					"workflowId": workflowId,
+					"name":       effName,
+					"env":        effEnv,
+					"appId":      appId,
+				}
 			}
-
-			if forced {
-				body["forced"] = true
-			}
-
-			c := client.NewClient(f.Config.Host, f.Config.Token)
-			path := "/gw/workflow/update"
 
 			resp, err := c.Post(path, body)
 			if err != nil {
@@ -678,6 +815,7 @@ EXAMPLES:
 
 	cmd.Flags().IntVar(&workflowId, "workflow-id", 0, "Workflow ID (required)")
 	cmd.Flags().StringVar(&name, "name", "", "New workflow name")
+	cmd.Flags().StringVar(&env, "env", "", "Environment override (test/formal); defaults to the workflow's env")
 	cmd.Flags().StringVar(&dslFile, "dsl-file", "", "Path to DSL JSON file")
 	cmd.Flags().StringVar(&dslString, "dsl-string", "", "DSL JSON string")
 	cmd.Flags().BoolVar(&forced, "forced", false, "Force update (ignore validation warnings)")
@@ -1135,6 +1273,14 @@ func validateDSL(dsl map[string]interface{}, strict bool) map[string]interface{}
 				if _, has := data["connector"]; !has {
 					errors = append(errors, fmt.Sprintf("Node '%s' missing 'connector'", id))
 				}
+			}
+		}
+		// Script nodes require an assertConfig at runtime; a workflow that omits
+		// it publishes fine but fails execution with "断言配置不允许为null".
+		if nodeType == "w_script" {
+			data, _ := node["data"].(map[string]interface{})
+			if data == nil || data["assertConfig"] == nil {
+				warnings = append(warnings, fmt.Sprintf("Node '%s' (w_script) missing 'assertConfig' (required at runtime, e.g. {\"assertType\":\"throwException\"})", id))
 			}
 		}
 	}

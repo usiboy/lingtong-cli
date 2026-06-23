@@ -169,6 +169,11 @@ lingtong-cli workflow api-test --app-tag <tag> --params '{"key":"value"}'
 
 | 错误 / 现象 | 恢复动作 |
 |---|---|
+| 执行报 `NullPointerException`（`buildFlowSource`） | 节点图未持久化：用 `workflow update`（走 `/workflow/update`，content 为字符串）保存后再发布；勿用 `/workflow/update/basic` 推 DSL。详见 [dsl-specification.md](references/dsl-specification.md) |
+| 执行报 `断言配置不允许为null` | 每个 `w_script` 节点 `data` 加 `assertConfig:{"assertType":"throwException"}` |
+| `节点执行失败:XxxResponse(... null)` / `页数为空` | 连接器参数传**扁平**（勿手动包 `requestBody`，会双重包裹）；pageSize 用 ≥20（建议100）；查询脚本 `try/catch` 仅对 `total=null` 降级；先用 `connector invoke` / 单节点 `debug/node/do` 验证。详见 [connector-invoke.md](references/connector-invoke.md) |
+| 高性能表写入 `该表格不包含字段：1` | `InfInvoker.insert` 改用字段**语义 key**（sid/num…），非数字 id | — |
+| 写入 `主键数据重复` | 明细表主键需「行级唯一」（如子订单 id）；主键建后不可改，必要时新建表 | — |
 | 验证失败: 缺少开始节点 | 添加 `w_start` 节点 |
 | 验证失败: 节点类型无效 | 检查 12 种合法节点类型 |
 | 变量引用错误 | 检查 `$nodeId.variable` 格式 |

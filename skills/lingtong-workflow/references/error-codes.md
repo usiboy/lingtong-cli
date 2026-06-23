@@ -16,6 +16,10 @@
 
 | 错误信息 | 原因 | 解决方案 |
 |----------|------|----------|
+| `NullPointerException` @ `buildFlowSource` | 节点图未持久化（多因用 `/workflow/update/basic` 推 DSL，或发布快照 `nodeDtoList` 为空） | 用 `/workflow/update`（content 为字符串）保存后再发布；详见 [dsl-specification.md 持久化与保存](dsl-specification.md) |
+| `断言配置不允许为null` | w_script 节点缺少 `assertConfig` | 每个脚本节点 `data` 加 `assertConfig:{"assertType":"throwException"}` |
+| `节点执行失败:XxxResponse(total=null, list=null...)` | ①手动包了 `requestBody` 导致双重包裹 ②pageSize 过小 ③确无数据 | 传【扁平】参数（AppInvoker 自动包裹，勿再包）；pageSize 用 ≥20（建议100）；查询脚本 `try/catch` 仅对 `total=null` 降级；先用 `connector invoke` 单点验证 |
+| `页数为空或不符合规定` | pageSize 过小/缺失（如 5） | pageSize 用 ≥20（建议 100） |
 | `connector,不能为空` | 连接器节点缺少 connector 配置 | 添加 connector 字段 |
 | `method 不能为空` | 方法名为空 | 检查方法名参数 |
 | `授权信息不存在` | authAccount 名称错误 | 检查账户名称 |

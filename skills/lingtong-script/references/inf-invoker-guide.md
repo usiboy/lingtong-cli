@@ -191,6 +191,21 @@ return response.getData().getData();
 
 ## 写入操作
 
+> **⚠️ 普通表 vs 高性能表的写入 key 不同（已实测）**
+>
+> - **普通表格**（`businessType=1`）：`params` 的 key 用**字段数字 ID** 字符串，如 `{"1":"...","17":"..."}`。
+> - **高性能表格**（`businessType=2` / `openHighMode=1`）：必须用**字段语义 key**（即 schema 里每列的 `key`，
+>   如 `{"sid":"...","num":1}`）；用数字 ID 会报 `该表格不包含字段：1`。
+>
+> 用 `lingtong-cli table schema query --basic-data-id <id>` 查看每列的 `id`、`key`、`type`、`primaryKey` 与 `businessType`。
+>
+> **主键约束**：
+> - 写入会按主键去重，主键重复报 `主键数据重复:<值>`。需要按「明细行」存储时，主键要取**行级唯一**的值
+>   （如子订单 `order.id`），不要用订单级的 `sid`（一单多行会冲突）。
+> - **表格主键创建后不可修改**（`table schema update` 报 `主键字段不能修改`）。若现有表主键不合适，
+>   需新建表（`lingtong-cli table create ... --open-high-mode 1 --columns-schema '[...primaryKey...]'`）。
+> - 数值字段建议写入前 `parseFloat` 规整；过大的 ID（>15 位）建议以 `text` 存储避免精度丢失。
+
 ### insert — 插入记录
 
 ```javascript

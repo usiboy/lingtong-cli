@@ -166,6 +166,41 @@ lingtong-cli connector cache clear
 lingtong-cli connector invoke ... --force
 ```
 
+## AppInvoker 请求/响应结构（易错点，已实测）
+
+以快麦 ERP trade 类接口（`erp.trade.outstock.simple.query`、`erp.trade.list.query` 等）为例：
+
+1. **请求参数传【扁平】，不要手动包 `requestBody`**。`AppInvoker.invoke` 的 body 运行时会自动包裹进
+   `requestBody`；若自己再包一层会变成 `requestBody.requestBody`（双重包裹）→ ERP 收到空参数 →
+   返回全 null（`TradeOutStockListQueryResponse(total=null,...)`）。在工作流脚本节点与 `connector invoke`
+   两种路径下都应传扁平参数：
+   ```js
+   // ✅ 正确：扁平
+   var body = {timeType:'created', startTime: s, endTime: e, pageSize: 100, pageNo: 1};
+   var result = AppInvoker.invoke(context, 'erp.trade.outstock.simple.query', '广州力人服饰', body);
+   // ❌ 错误：{requestBody:{...}} -> 双重包裹 -> 查不到数据
+   ```
+   用 `connector schema --connector <c> --method <m> --auth-account-id <id>` 看字段名（`requestFieldList`
+   的 `fullPath` 形如 `requestBody.startTime`，确认要传哪些参数；但调用时传扁平即可，无需自己加 `requestBody` 前缀）。
+2. **pageSize 不能太小**。kmerp 出库/订单接口对过小的 pageSize 会返回 null（实测 `pageSize=5` 失败、
+   `20/50/100/200` 正常）。建议默认 100，并对 `<20` 的值兜底。
+3. **成功响应直接是 `responseData` 对象**：字段在顶层（`{list, total, success, ...}`），读
+   `result.list` / `result.total`（Nashorn 会按 JavaBean 规则把 `.list` 映射到 `getList()`），
+   **不是** `result.result.list`。
+4. **空/失败响应会抛异常**：无数据时连接器节点抛 `节点执行失败:XxxResponse(total=null,...)`，会中断整个工作流。
+   查询脚本应 `try/catch`，仅对「空结果」(`total=null`) 降级为空数组、其它异常向上抛出：
+   ```js
+   var list = [], total = 0;
+   try {
+     var r = AppInvoker.invoke(context, method, account, body);
+     if (r != null) { if (r.list != null) list = r.list; if (r.total != null) total = r.total; }
+   } catch (e) { if (('' + e).indexOf('total=null') < 0) { throw e; } }
+   return {list: list, total: total};
+   ```
+
+> 排错顺序：先用 `connector invoke` 单点验证接口能否返回数据（与工作流隔离），再排查工作流编排。
+> 单节点级调试见 [testing-guide.md](testing-guide.md) 的「单节点调试 /workflow/debug/node/do」。
+
 ## 常见问题
 
 | 问题 | 原因 | 解决方案 |
@@ -174,6 +209,9 @@ lingtong-cli connector invoke ... --force
 | `connector,不能为空` | 参数被 `args` 包裹 | Open API 参数放顶层 |
 | `args is not defined` | 脚本直接引用 `args` | 使用 `context.get("paramName")` |
 | Script 拿不到参数 | 缺少 `inputVariables` | 配置 `$w_start_first.xxx` 引用 |
+| 响应全 null（`total=null,list=null`） | 手动包了 `requestBody` 导致双重包裹，或 pageSize 过小 | 传扁平参数；pageSize 用 ≥20（建议 100） |
+| 读不到响应数据 | 误用 `result.result.list` | 用 `result.list` / `result.total`（响应即 responseData） |
+| 空数据导致整流程失败 | 连接器对空响应抛异常 | 查询脚本 `try/catch`，仅对 `total=null` 降级 |
 
 ## 相关文档
 

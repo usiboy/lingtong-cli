@@ -203,6 +203,8 @@
 
 ### 重要规则
 
+- **assertConfig（必填）**: `data` 必须含 `assertConfig`（如 `{"assertType":"throwException"}`）；
+  缺失时保存/发布不报错，但执行报 `断言配置不允许为null`
 - **语法限制**: ES5.1（Nashorn 引擎），不支持 ES6+
 - **inputVariables**: 必须声明，引用上游节点输出
 - **context API**: `context.get("key")` 获取输入变量

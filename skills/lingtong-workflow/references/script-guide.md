@@ -142,6 +142,17 @@ return result;
 context.put("_env", "test");  // 或 "prod"
 ```
 
+### 请求/响应结构（易错点，已实测）
+
+- **请求参数传【扁平】，不要手动包 `requestBody`**：`AppInvoker.invoke` 会自动包裹，自己再包一层
+  会导致双重包裹、ERP 收到空参数返回全 null。✅ `{timeType:'created',startTime,endTime,pageSize:100,pageNo:1}`。
+- **pageSize 不能太小**：kmerp 出库/订单接口对过小 pageSize 返回 null（实测 5 失败、20+ 正常），默认用 100。
+- **成功响应即 responseData 对象**：字段在顶层，读 `result.list` / `result.total`（不是 `result.result.list`）。
+- **空/失败响应会抛异常**：连接器对空响应抛 `节点执行失败:...XxxResponse(total=null,...)`，
+  查询脚本应 `try/catch`，仅对 `total=null` 降级为空数组、其它异常向上抛出。
+
+完整说明与示例见 [connector-invoke.md](connector-invoke.md#appinvoker-请求响应结构易错点已实测)。
+
 ## InfInvoker（表格函数）
 
 InfInvoker 用于操作绫通表格数据（CRUD + ES 聚合查询），在工作流脚本、场景字段函数、连接器字段函数中均可使用。

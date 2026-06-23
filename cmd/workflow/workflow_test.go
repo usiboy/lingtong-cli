@@ -107,6 +107,42 @@ func TestValidateDSL(t *testing.T) {
 			errorCount:  1,
 			warnCount:   0,
 		},
+		{
+			name: "script node missing assertConfig warns",
+			dsl: map[string]interface{}{
+				"nodes": []interface{}{
+					map[string]interface{}{"id": "start", "type": "w_start"},
+					map[string]interface{}{"id": "s1", "type": "w_script", "data": map[string]interface{}{"scriptConfig": map[string]interface{}{"language": "javascript"}}},
+					map[string]interface{}{"id": "end", "type": "w_end"},
+				},
+				"edges": []interface{}{
+					map[string]interface{}{"source": "start", "target": "s1"},
+					map[string]interface{}{"source": "s1", "target": "end"},
+				},
+			},
+			strict:      false,
+			expectValid: true,
+			errorCount:  0,
+			warnCount:   1,
+		},
+		{
+			name: "script node with assertConfig has no warning",
+			dsl: map[string]interface{}{
+				"nodes": []interface{}{
+					map[string]interface{}{"id": "start", "type": "w_start"},
+					map[string]interface{}{"id": "s1", "type": "w_script", "data": map[string]interface{}{"assertConfig": map[string]interface{}{"assertType": "throwException"}}},
+					map[string]interface{}{"id": "end", "type": "w_end"},
+				},
+				"edges": []interface{}{
+					map[string]interface{}{"source": "start", "target": "s1"},
+					map[string]interface{}{"source": "s1", "target": "end"},
+				},
+			},
+			strict:      false,
+			expectValid: true,
+			errorCount:  0,
+			warnCount:   0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -740,7 +776,7 @@ func TestNewCmdWorkflowCreate_WithTemplate(t *testing.T) {
 	f := newTestFactory(server.URL)
 	cmd := newCmdWorkflowCreate(f)
 	cmd.Flags().String("format", "json", "Output format")
-	cmd.SetArgs([]string{"--name", "Test Workflow", "--template", "simple"})
+	cmd.SetArgs([]string{"--app-id", "165", "--name", "Test Workflow", "--template", "simple"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 
@@ -753,7 +789,7 @@ func TestNewCmdWorkflowCreate_WithTemplate(t *testing.T) {
 func TestNewCmdWorkflowCreate_UnknownTemplate(t *testing.T) {
 	f := newTestFactory("http://example.com")
 	cmd := newCmdWorkflowCreate(f)
-	cmd.SetArgs([]string{"--name", "Test", "--template", "unknown"})
+	cmd.SetArgs([]string{"--app-id", "165", "--name", "Test", "--template", "unknown"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 
@@ -766,7 +802,7 @@ func TestNewCmdWorkflowCreate_UnknownTemplate(t *testing.T) {
 	}
 }
 
-func TestNewCmdWorkflowCreate_NoDSL(t *testing.T) {
+func TestNewCmdWorkflowCreate_MissingAppId(t *testing.T) {
 	f := newTestFactory("http://example.com")
 	cmd := newCmdWorkflowCreate(f)
 	cmd.SetArgs([]string{"--name", "Test"})
@@ -775,10 +811,33 @@ func TestNewCmdWorkflowCreate_NoDSL(t *testing.T) {
 
 	err := cmd.Execute()
 	if err == nil {
-		t.Error("expected error for missing DSL source")
+		t.Error("expected error for missing --app-id")
 	}
-	if !strings.Contains(err.Error(), "dsl-file") && !strings.Contains(err.Error(), "dsl-string") && !strings.Contains(err.Error(), "template") {
-		t.Errorf("expected DSL source error, got: %v", err)
+	if !strings.Contains(err.Error(), "app-id") {
+		t.Errorf("expected app-id error, got: %v", err)
+	}
+}
+
+// TestNewCmdWorkflowCreate_ShellNoDSL verifies that creating without a DSL
+// source now produces an empty shell instead of erroring.
+func TestNewCmdWorkflowCreate_ShellNoDSL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"result": map[string]interface{}{"id": 100, "name": "Test"},
+		})
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdWorkflowCreate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--app-id", "165", "--name", "Test"})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Execute(); err != nil {
+		t.Errorf("unexpected error creating shell: %v", err)
 	}
 }
 
@@ -792,7 +851,7 @@ func TestNewCmdWorkflowCreate_ServerError(t *testing.T) {
 	f := newTestFactory(server.URL)
 	cmd := newCmdWorkflowCreate(f)
 	cmd.Flags().String("format", "json", "Output format")
-	cmd.SetArgs([]string{"--name", "Test", "--template", "simple"})
+	cmd.SetArgs([]string{"--app-id", "165", "--name", "Test", "--template", "simple"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 
@@ -832,6 +891,66 @@ func TestNewCmdWorkflowUpdate_Success(t *testing.T) {
 	err := cmd.Execute()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestNewCmdWorkflowUpdate_DSLPersistsContent locks in the fix for the
+// buildFlowSource NPE: a DSL update must reach /workflow/update with the DSL as
+// the 'content' STRING and 'workflowId' (never as an 'id'/'dsl' object, which
+// the API ignores, silently dropping the node graph).
+func TestNewCmdWorkflowUpdate_DSLPersistsContent(t *testing.T) {
+	var captured map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var envelope map[string]interface{}
+		_ = json.Unmarshal(raw, &envelope)
+		path, _ := envelope["path"].(string)
+		// Proxy mode wraps the real request under "body".
+		inner, _ := envelope["body"].(map[string]interface{})
+		switch {
+		case strings.Contains(path, "/workflow/get"):
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"result": map[string]interface{}{
+					"id": 100, "appId": 165, "env": "test",
+					"name": "Existing", "ts": float64(1782125248000),
+				},
+			})
+		case strings.Contains(path, "/workflow/update"):
+			captured = inner
+			json.NewEncoder(w).Encode(map[string]interface{}{"result": map[string]interface{}{"success": true}})
+		default:
+			json.NewEncoder(w).Encode(map[string]interface{}{"result": map[string]interface{}{}})
+		}
+	}))
+	defer server.Close()
+
+	f := newTestFactory(server.URL)
+	cmd := newCmdWorkflowUpdate(f)
+	cmd.Flags().String("format", "json", "Output format")
+	cmd.SetArgs([]string{"--workflow-id", "100", "--dsl-string", `{"nodes":[{"id":"w_start_first","type":"w_start"}],"edges":[]}`})
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if captured == nil {
+		t.Fatal("update request was not captured")
+	}
+	if _, isStr := captured["content"].(string); !isStr {
+		t.Errorf("expected 'content' to be a JSON string, got %T (%v)", captured["content"], captured["content"])
+	}
+	if captured["workflowId"] == nil {
+		t.Error("expected 'workflowId' in update body")
+	}
+	if _, hasDSL := captured["dsl"]; hasDSL {
+		t.Error("update body must not contain a 'dsl' object (causes silent node-graph loss)")
+	}
+	if _, hasID := captured["id"]; hasID {
+		t.Error("update body must use 'workflowId', not 'id'")
+	}
+	if captured["ts"] == nil || captured["ts"] == "" {
+		t.Error("expected 'ts' version token to be carried from existing workflow")
 	}
 }
 
