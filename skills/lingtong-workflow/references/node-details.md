@@ -348,9 +348,67 @@
 
 | 模式 | 说明 |
 |------|------|
-| `count` | 计数模式 |
-| `time` | 时间模式 |
-| `cursor` | 游标模式 |
+| `count` | 按 total 计算最大页码，适合有 total 字段的接口 |
+| `whole` | 全量一次拉取，不做分页 |
+| `LIST` | 按响应列表为空判断截止 |
+
+### 实战技巧
+
+#### 输出变量配置（关键陷阱）
+
+`outputVariables` 的 `value` 字段必须以 `$.` 开头才能触发 `RefValueType.self`（从连接器响应提取数据）：
+
+```json
+{
+  "outputVariables": [
+    {
+      "variable": "list",
+      "variableAttr": {
+        "dataType": "json",
+        "value": "$.list",
+        "refValueType": "self"
+      }
+    }
+  ]
+}
+```
+
+**错误示例**：`"value": "$"` 会被解析为 `RefValueType.context`（从工作流上下文提取），导致前端显示"未知类型"。
+
+**正确示例**：`"value": "$.list"` 提取连接器响应中的 `list` 字段。
+
+#### 边连接规则（WHILE 类型特殊要求）
+
+管道节点是 **WHILE 类型**，其出边必须设置 `sourceHandle: "true"`：
+
+```json
+{
+  "sourceHandle": "true",
+  "data": {"name": "true"},
+  "source": "w_modePipe_xxx",
+  "target": "w_script_transform"
+}
+```
+
+普通节点的 `sourceHandle` 为 `"source"`，但 WHILE 节点需要 `"true"`/`"false"` 区分循环体内和退出路径。
+
+**错误示例**：`"sourceHandle": "source"` → 报错"循环节点后面需要添加处理节点"。
+
+#### 游标管理
+
+- 管道自动管理 `startTime`/`endTime`/`pageNo`/`pageSize` 游标字段
+- `queryParams` 只需配置**非游标字段**（如 `timeType: "created"`）
+- 游标通过 `SyncCursorService` 持久化到数据库，跨执行保持同步位置
+- 查看游标状态：
+  ```bash
+  lingtong-cli service workflow design-getcursor --workflowId <id> --nodeId <nodeId>
+  ```
+
+#### 迭代模式
+
+管道节点每页迭代一次，下游节点逐页处理。例如：
+- 第 1 页拉取 → transform 处理 → write 写入 → 第 2 页拉取 → ...
+- 适合大数据量场景，避免一次性加载全部数据到内存
 
 ---
 

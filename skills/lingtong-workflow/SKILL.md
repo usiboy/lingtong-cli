@@ -187,6 +187,7 @@ lingtong-cli workflow api-test --app-tag <tag> --params '{"key":"value"}'
 - [简单工作流](references/examples/simple-workflow.md) - 开始→结束基础流程
 - [连接器 API 化](references/examples/connector-api.md) - 将连接器接口暴露为 API
 - [数据管道](references/examples/data-pipeline.md) - 批量数据同步流程
+- [销售出库单同步](references/examples/outstock-sync.md) - 管道节点抽取+数据加工+表格写入
 - [通用连接器调用](references/connector-invoke.md) - CLI 自动化调用模式
 
 ## 保留 Reference
