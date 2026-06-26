@@ -52,3 +52,39 @@ func GetTokenForProfile(profile string) (string, error) {
 func DeleteTokenForProfile(profile string) error {
 	return keyring.Delete(serviceName, keychainUser(profile))
 }
+
+// StoreTokenForAuth stores a token for a named auth identity within a profile.
+// profile: profile name ("" for default)
+// label: auth identity label (e.g. "company-a")
+func StoreTokenForAuth(profile, label, token string) error {
+	return keyring.Set(serviceName, authKeychainUser(profile, label), token)
+}
+
+// GetTokenForAuth retrieves a token for a named auth identity within a profile.
+func GetTokenForAuth(profile, label string) (string, error) {
+	return keyring.Get(serviceName, authKeychainUser(profile, label))
+}
+
+// DeleteTokenForAuth removes a token for a named auth identity within a profile.
+func DeleteTokenForAuth(profile, label string) error {
+	return keyring.Delete(serviceName, authKeychainUser(profile, label))
+}
+
+// authKeychainUser returns the keychain key for a profile+auth combination.
+//
+//	default profile + no label  → "default"              (backward compat)
+//	default profile + label     → "auth:<label>"
+//	named profile + no label    → "profile:<name>"        (backward compat)
+//	named profile + label       → "profile:<name>:auth:<label>"
+func authKeychainUser(profile, label string) string {
+	if profile == "" && label == "" {
+		return userName // "default"
+	}
+	if profile == "" {
+		return "auth:" + label
+	}
+	if label == "" {
+		return "profile:" + profile
+	}
+	return "profile:" + profile + ":auth:" + label
+}

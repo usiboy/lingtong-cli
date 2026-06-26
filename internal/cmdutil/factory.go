@@ -19,6 +19,7 @@ type Factory struct {
 	Envelope   bool                  // global --envelope flag
 	JqExpr     string                // global --jq flag
 	Profile    string                // global --profile flag (overrides CurrentProfile)
+	AuthName   string                // global --auth flag (overrides CurrentAuth)
 	Notice     *output.Notice        // system notice for envelope injection
 	NoticeChan <-chan *output.Notice // async notice fetch channel
 }
@@ -62,6 +63,18 @@ func (f *Factory) EffectiveProfile() string {
 	}
 	if f.Config != nil {
 		return f.Config.CurrentProfile
+	}
+	return ""
+}
+
+// EffectiveAuth returns the auth identity that is actually in effect: the
+// --auth flag when set, otherwise the persisted CurrentAuth, otherwise "".
+func (f *Factory) EffectiveAuth() string {
+	if f.AuthName != "" {
+		return f.AuthName
+	}
+	if f.Config != nil {
+		return f.Config.CurrentAuth
 	}
 	return ""
 }

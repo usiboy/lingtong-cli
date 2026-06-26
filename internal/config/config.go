@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -21,12 +22,47 @@ type Config struct {
 	// Multi-profile support
 	CurrentProfile string             `yaml:"currentProfile,omitempty"`
 	Profiles       map[string]Profile `yaml:"profiles,omitempty"`
+
+	// Multi-auth: authenticated identities under the default (top-level) scope
+	Auths       map[string]AuthIdentity `yaml:"auths,omitempty"`
+	CurrentAuth string                  `yaml:"currentAuth,omitempty"`
 }
 
 // Profile represents a named configuration profile (e.g., dev, staging, prod).
 type Profile struct {
 	Host  string `yaml:"host"`
 	Brand string `yaml:"brand,omitempty"`
+}
+
+// AuthIdentity represents a single authenticated identity under a config scope.
+type AuthIdentity struct {
+	Label       string      `yaml:"label"`                // Display alias, e.g. "company-a"
+	TokenSuffix string      `yaml:"tokenSuffix"`          // Last 4 chars of token for masked display
+	TenantInfo  *TenantInfo `yaml:"tenantInfo,omitempty"` // Cached tenant info (non-sensitive)
+	CreatedAt   string      `yaml:"createdAt"`            // ISO-8601 creation timestamp
+}
+
+// TenantInfo holds cached tenant information fetched at login time.
+type TenantInfo struct {
+	TenantId  string `yaml:"tenantId"`
+	FetchedAt string `yaml:"fetchedAt"` // ISO-8601 fetch timestamp
+}
+
+// NewAuthIdentity creates an AuthIdentity with the current timestamp.
+func NewAuthIdentity(label, tokenSuffix, tenantId string) AuthIdentity {
+	now := time.Now().UTC().Format(time.RFC3339)
+	ai := AuthIdentity{
+		Label:       label,
+		TokenSuffix: tokenSuffix,
+		CreatedAt:   now,
+	}
+	if tenantId != "" {
+		ai.TenantInfo = &TenantInfo{
+			TenantId:  tenantId,
+			FetchedAt: now,
+		}
+	}
+	return ai
 }
 
 // DefaultHost is the default API host when none is configured.
@@ -157,6 +193,69 @@ func (c *Config) ListProfiles() []string {
 		}
 	}
 	return names
+}
+
+// GetAuth returns the auth identity with the given label, or nil if not found.
+func (c *Config) GetAuth(label string) *AuthIdentity {
+	if c.Auths == nil {
+		return nil
+	}
+	a, ok := c.Auths[label]
+	if !ok {
+		return nil
+	}
+	return &a
+}
+
+// SetAuth sets or updates an auth identity.
+func (c *Config) SetAuth(label string, auth AuthIdentity) {
+	if c.Auths == nil {
+		c.Auths = make(map[string]AuthIdentity)
+	}
+	c.Auths[label] = auth
+}
+
+// RemoveAuth removes an auth identity by label. Returns true if it existed.
+func (c *Config) RemoveAuth(label string) bool {
+	if c.Auths == nil {
+		return false
+	}
+	_, ok := c.Auths[label]
+	if ok {
+		delete(c.Auths, label)
+	}
+	return ok
+}
+
+// ListAuths returns all auth identity labels sorted alphabetically.
+func (c *Config) ListAuths() []string {
+	if c.Auths == nil {
+		return nil
+	}
+	names := make([]string, 0, len(c.Auths))
+	for name := range c.Auths {
+		names = append(names, name)
+	}
+	for i := 0; i < len(names); i++ {
+		for j := i + 1; j < len(names); j++ {
+			if names[i] > names[j] {
+				names[i], names[j] = names[j], names[i]
+			}
+		}
+	}
+	return names
+}
+
+// ResolveAuth returns the auth identity for the given name.
+// If name is empty, uses CurrentAuth. Returns nil if not found.
+func (c *Config) ResolveAuth(name string) *AuthIdentity {
+	if name == "" {
+		name = c.CurrentAuth
+	}
+	if name == "" {
+		return nil
+	}
+	return c.GetAuth(name)
 }
 
 // ResolveProfile returns the effective host and brand for the given profile name.

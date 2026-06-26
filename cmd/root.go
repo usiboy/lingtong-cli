@@ -131,6 +131,19 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 			}
 		}
 
+		// Resolve --auth flag
+		if authName, _ := cmd.Flags().GetString("auth"); authName != "" {
+			f.AuthName = authName
+		}
+		// Load the auth-identity-scoped token. This overrides the profile token
+		// when a multi-auth identity is active. LINGTONG_TOKEN still wins.
+		if effectiveAuth := f.EffectiveAuth(); effectiveAuth != "" && os.Getenv("LINGTONG_TOKEN") == "" {
+			profileName := f.EffectiveProfile()
+			if token, err := ltauth.GetTokenForAuth(profileName, effectiveAuth); err == nil && token != "" {
+				f.Config.Token = token
+			}
+		}
+
 		// Only override OmitNull if the flag was explicitly set by the user
 		if cmd.Flags().Changed("omit-null") {
 			omitNull, _ := cmd.Flags().GetBool("omit-null")
@@ -209,6 +222,7 @@ func NewRootCommand(f *cmdutil.Factory) *cobra.Command {
 	rootCmd.PersistentFlags().Bool("envelope", false, "Wrap output in standard envelope {ok, data, error}")
 	rootCmd.PersistentFlags().StringP("jq", "q", "", "jq expression to filter output (implies JSON output)")
 	rootCmd.PersistentFlags().String("profile", "", "Use a named configuration profile (e.g., dev, staging, prod)")
+	rootCmd.PersistentFlags().String("auth", "", "Use a named auth identity (e.g., company-a)")
 
 	return rootCmd
 }
