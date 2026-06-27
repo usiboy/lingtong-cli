@@ -21,20 +21,18 @@ metadata:
 
 不要使用本 skill：
 
-- 完整的场景创建流程（连接器选择、账号配置、模型选择），转 `lingtong-scene-create`
-- 数据视图配置，转 `lingtong-scene-data-view-create`
-- 数据预处理配置，转 `lingtong-scene-data-preprocess-create`
-- 字段映射配置，转 `lingtong-scene-field-mapping-create`
+- 完整的场景创建流程（连接器选择、账号配置、模型选择）不能只靠 `scene create`，需要组合 `lingtong-connector`、`lingtong-model`、`lingtong-workflow` 和 `lingtong-service`
+- 数据视图、数据预处理、复杂字段映射配置优先使用现有专用命令或 `lingtong-service scene ...` 长尾 API
 - 只是查询连接器信息或账户，转 `lingtong-connector`
 - 只是管理工作流，转 `lingtong-workflow`
 
 ## 使用边界
 
 - 场景查询使用 `lingtong-cli scene` 命令
-- 复杂场景创建（需要选择连接器、账号、模型）使用 `lingtong-scene-create` skill
+- 复杂场景创建（需要选择连接器、账号、模型）需要组合连接器、模型、场景和工作流命令
 - 本地应用文件中的场景管理使用 `lingtong-cli app scene` 命令
 - API 响应数据以 `result` 字段包裹，不是 `data`
-- `scene create` 命令仅创建草稿场景，完整配置需使用 `lingtong-scene-create` skill
+- `scene create` 命令仅创建草稿场景，完整配置需继续使用 `scene update`、`scene trigger`、`scene field-mapping` 或 `service scene ...`
 
 ## 快速路由
 
@@ -43,7 +41,7 @@ metadata:
 | 查看场景列表 | `scene list [--page <n>] [--page-size <n>] [--app-id <id>]` | - |
 | 查看场景详情 | `scene info --scene-id <id>` | - |
 | 快速创建草稿场景 | `scene create --name <name> [--description <desc>]` | 读 [limitations.md](references/limitations.md) 了解 CLI 创建的限制 |
-| 完整场景创建流程 | 使用 `lingtong-scene-create` skill | - |
+| 完整场景创建流程 | 组合 `connector`、`model`、`scene update`、`workflow` 或 `service scene ...` | 读 [limitations.md](references/limitations.md) |
 | 管理本地应用场景 | `app scene list/add/remove --file <file>` | - |
 | 了解场景类型 | - | 读 [scene-types.md](references/scene-types.md) |
 | 了解 API 响应结构 | - | 读 [api-response-fields.md](references/api-response-fields.md) |
@@ -55,7 +53,7 @@ metadata:
 - 场景类型：1=正常场景，2=触发器场景，3=消息回调场景，4=推送数据场景
 - 同步模式：1=双流模式（双向），2=直推模式（单向）
 - 场景是工作流的容器，一个场景可包含多个工作流
-- CLI `scene create` 仅创建草稿场景（只设置 name/description），完整配置需通过 `lingtong-scene-create` skill 完成 6 步流程
+- CLI `scene create` 仅创建草稿场景（只设置 name/description），完整配置需继续补齐连接器、账号、模型、字段映射和工作流
 
 ## 命令路由
 
@@ -130,7 +128,7 @@ lingtong-cli +scene-list [--page <n>] [--page-size <n>] [--app-id <id>]
 | 场景创建返回但无 sceneId | 兼容提取 `result.sceneId ?? result.id` |
 | 场景详情查询失败 | 确认使用 `--scene-id` 参数（不是 `--id`） |
 | API 返回权限错误 | 检查 Token 是否有效：`lingtong-cli auth status` |
-| `scene create` 后场景不完整 | 这是预期行为，使用 `lingtong-scene-create` skill 完成完整配置 |
+| `scene create` 后场景不完整 | 这是预期行为，继续使用 `scene update`、`scene trigger`、`scene field-mapping` 或 `service scene ...` 补齐配置 |
 | 本地文件场景解析失败 | 检查 JSON 格式是否正确 |
 
 ## 数据模型
@@ -212,7 +210,7 @@ lingtong-cli +scene-list [--page <n>] [--page-size <n>] [--app-id <id>]
 1. **先列出场景**，了解现有场景结构和 ID
 2. **使用 `scene info`** 查看完整配置再修改
 3. **快速创建用 `scene create`**，但要知道它只创建草稿
-4. **完整配置用 `lingtong-scene-create` skill**，自动处理连接器和账号选择
+4. **完整配置需要组合多个命令**，先查连接器和模型，再补齐场景配置、字段映射和工作流
 5. **本地开发用 `app scene`** 命令管理应用 JSON 文件
 6. **场景 ID 提取**：兼容 `result.sceneId` 和 `result.id`（优先 `sceneId`）
 
@@ -241,90 +239,3 @@ lingtong-cli scene delete --scene-id 123 --yes                    # 删除(破�
 - [limitations.md](references/limitations.md) - CLI `scene create` 命令的限制说明
 - [scene-types.md](references/scene-types.md) - 场景类型和同步模式详解
 - [api-response-fields.md](references/api-response-fields.md) - 完整 API 响应字段说明
----
-name: lingtong-scene
-version: 1.0.0
-description: "绫通场景管理：创建、查询、列出集成场景。当用户需要管理集成场景、创建新的数据同步流程、查询场景详情时触发。关键词：scene、场景、scene list、scene create、integration。"
----
-
-# lingtong-scene 技能
-
-## 概述
-
-本技能指导你如何通过 `lingtong-cli` 管理绫通平台的集成场景。
-
-平台场景命令需要先运行 `lingtong-cli config init --host https://your-lingtong-host.com` 配置 Host。未配置时会返回 `no host configured`，并提示运行 `lingtong-cli config init --host <url>`。
-
-## 核心命令
-
-### 列出场景
-
-```bash
-lingtong-cli scene list [--page <n>] [--page-size <n>] [--app-id <id>]
-```
-
-**示例**:
-```bash
-# 列出所有场景
-lingtong-cli scene list
-
-# 分页查询
-lingtong-cli scene list --page 1 --page-size 50
-
-# 按应用过滤
-lingtong-cli scene list --app-id 165 --page 1 --page-size 50
-```
-
-### 创建场景
-
-```bash
-lingtong-cli scene create --name <name> [--description <desc>]
-```
-
-**示例**:
-```bash
-# 创建订单同步场景
-lingtong-cli scene create --name "订单同步" --description "从金蝶云同步订单到自有ERP"
-```
-
-### 查询场景详情
-
-```bash
-lingtong-cli scene info --scene-id <id>
-```
-
-**示例**:
-```bash
-lingtong-cli scene info --scene-id 123
-```
-
-## 快捷命令
-
-```bash
-# 快捷列出场景
-lingtong-cli +scene-list
-```
-
-## 数据模型
-
-场景返回的典型数据结构：
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "name": "订单同步",
-    "description": "从金蝶云同步订单到自有ERP",
-    "status": "active",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "workflows": [...]
-  }
-}
-```
-
-## 最佳实践
-
-1. **先列出场景**，了解现有场景结构
-2. **创建场景时使用描述性名称**，便于后续管理
-3. **场景是工作流的容器**，一个场景可包含多个工作流

@@ -512,7 +512,7 @@ failed to read file app.json: no such file or directory
 
 ## 相关技能
 
-- 加载 `lingtong-api` 技能了解底层 API 调用
+- 加载 `lingtong-service` 技能了解长尾 OpenAPI 调用
 - 加载 `lingtong-factory` 技能了解连接器配置
 - 加载 `lingtong-workflow` 技能了解工作流编排
-- 加载 `lingtong-table-core` 技能了解表格数据管理
+- 加载 `lingtong-table` 技能了解表格数据管理
