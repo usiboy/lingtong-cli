@@ -5,8 +5,8 @@ package auth
 
 import (
 	"fmt"
-	"text/tabwriter"
 	"os"
+	"text/tabwriter"
 
 	"github.com/lingtong/cli/internal/auth"
 	"github.com/lingtong/cli/internal/cmdutil"
