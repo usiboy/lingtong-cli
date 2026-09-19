@@ -66,7 +66,7 @@ func TestNewCmdAuth(t *testing.T) {
 
 	// Verify subcommands are registered
 	subcommands := cmd.Commands()
-	assert.Len(t, subcommands, 3)
+	assert.Len(t, subcommands, 6)
 
 	cmdNames := make([]string, len(subcommands))
 	for i, c := range subcommands {
@@ -75,6 +75,9 @@ func TestNewCmdAuth(t *testing.T) {
 	assert.Contains(t, cmdNames, "login")
 	assert.Contains(t, cmdNames, "status")
 	assert.Contains(t, cmdNames, "logout")
+	assert.Contains(t, cmdNames, "list")
+	assert.Contains(t, cmdNames, "use")
+	assert.Contains(t, cmdNames, "remove")
 }
 
 // TestNewCmdAuthLogin tests the login command structure

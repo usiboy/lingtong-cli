@@ -1,5 +1,11 @@
 # Binaries
 lingtong-cli
+/bin/
+/dist/
+
+# npm release artifacts
+checksums.txt
+*.tgz
 
 # IDE
 .idea/

@@ -1,0 +1,40 @@
+{
+  "name": "@lingtong-cli/cli",
+  "version": "0.1.0",
+  "description": "Official Lingtong iPaaS CLI for humans and AI agents",
+  "bin": {
+    "lingtong-cli": "scripts/run.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "test:npm": "node --test scripts/*.test.js"
+  },
+  "files": [
+    "scripts/install.js",
+    "scripts/install-wizard.js",
+    "scripts/run.js",
+    "checksums.txt",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usiboy/lingtong-cli.git"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -62,8 +62,12 @@ func TestBuildUpdateResult(t *testing.T) {
 func TestGetInstallInstructions(t *testing.T) {
 	instructions := getInstallInstructions("v1.3.0")
 	methods := map[string]bool{}
+	npmCommand := ""
 	for _, inst := range instructions {
 		methods[inst["method"]] = true
+		if inst["method"] == "npm" {
+			npmCommand = inst["command"]
+		}
 		if inst["command"] == "" {
 			t.Errorf("command for %q should not be empty", inst["method"])
 		}
@@ -73,9 +77,16 @@ func TestGetInstallInstructions(t *testing.T) {
 			t.Errorf("missing install method %q", m)
 		}
 	}
+	if npmCommand != "npm install -g @lingtong-cli/cli" {
+		t.Errorf("npm command = %q, want scoped package", npmCommand)
+	}
 }
 
 func TestResolveCheckURL(t *testing.T) {
+	const publicReleaseURL = "https://api.github.com/repos/usiboy/lingtong-cli/releases/latest"
+	if CheckURL != publicReleaseURL {
+		t.Fatalf("CheckURL = %q, want %q", CheckURL, publicReleaseURL)
+	}
 	if got := resolveCheckURL(); got != CheckURL {
 		t.Errorf("resolveCheckURL() = %q, want default %q", got, CheckURL)
 	}

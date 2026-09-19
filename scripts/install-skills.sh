@@ -39,7 +39,7 @@ resolve_cli() {
     make -C "${SCRIPT_DIR}" build >&2
     echo "${SCRIPT_DIR}/lingtong-cli"; return 0
   fi
-  echo "error: lingtong-cli not found. Install it (npm i -g @lingtong/cli, or 'make install') and retry." >&2
+  echo "error: lingtong-cli not found. Install it (npm i -g @lingtong-cli/cli, or 'make install') and retry." >&2
   return 1
 }
 

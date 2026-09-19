@@ -29,7 +29,7 @@ import (
 const defaultTimeout = 2 * time.Second
 
 // defaultCheckURL is the release endpoint consulted for update availability.
-const defaultCheckURL = "https://api.github.com/repos/lingtong/cli/releases/latest"
+const defaultCheckURL = "https://api.github.com/repos/usiboy/lingtong-cli/releases/latest"
 
 // Tunables exposed as package variables so tests can redirect them and so the
 // check endpoint can be overridden via the LINGTONG_UPDATE_URL env var.
@@ -119,7 +119,7 @@ func checkForUpdates(ctx context.Context) *output.UpdateNotice {
 	if version.Compare(currentVersion, release.TagName) < 0 {
 		return &output.UpdateNotice{
 			Version: release.TagName,
-			URL:     fmt.Sprintf("https://github.com/lingtong/cli/releases/tag/%s", release.TagName),
+			URL:     fmt.Sprintf("https://github.com/usiboy/lingtong-cli/releases/tag/%s", release.TagName),
 		}
 	}
 	return nil

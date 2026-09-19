@@ -614,18 +614,15 @@ func TestApiCommandWithParams(t *testing.T) {
 			t.Fatalf("failed to decode proxy body: %v", err)
 		}
 
-		// Verify params
-		params, ok := proxyBody["params"].(map[string]interface{})
-		if !ok {
-			t.Fatalf("proxy params is not a map, got %T", proxyBody["params"])
+		// GET proxy parameters are encoded in the proxy request URL.
+		if _, ok := proxyBody["params"]; ok {
+			t.Error("GET proxy body should not contain params")
 		}
-
-		if params["page"] != float64(1) {
-			t.Errorf("params page = %v, want 1", params["page"])
+		if r.URL.Query().Get("page") != "1" {
+			t.Errorf("page query = %q, want 1", r.URL.Query().Get("page"))
 		}
-
-		if params["limit"] != float64(10) {
-			t.Errorf("params limit = %v, want 10", params["limit"])
+		if r.URL.Query().Get("limit") != "10" {
+			t.Errorf("limit query = %q, want 10", r.URL.Query().Get("limit"))
 		}
 
 		w.Header().Set("Content-Type", "application/json")

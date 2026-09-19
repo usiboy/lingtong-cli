@@ -22,7 +22,7 @@ import (
 )
 
 // defaultCheckURL is the default URL to check for the latest version.
-const defaultCheckURL = "https://api.github.com/repos/lingtong/cli/releases/latest"
+const defaultCheckURL = "https://api.github.com/repos/usiboy/lingtong-cli/releases/latest"
 
 // httpTimeout for version check requests.
 const httpTimeout = 5 * time.Second
@@ -75,7 +75,7 @@ EXAMPLES:
 					"currentVersion": currentVersion,
 					"checkError":     err.Error(),
 					"message":        "Could not check for updates. Visit the releases page manually.",
-					"releaseURL":     "https://github.com/lingtong/cli/releases",
+					"releaseURL":     "https://github.com/usiboy/lingtong-cli/releases",
 				}
 				return outputResult(cmd, f, result)
 			}
@@ -146,7 +146,7 @@ func buildUpdateResult(current, latest string, needsUpdate bool) map[string]inte
 	if needsUpdate {
 		result["message"] = fmt.Sprintf("A new version is available: %s (current: %s)", latest, current)
 		result["installInstructions"] = getInstallInstructions(latest)
-		result["releaseURL"] = fmt.Sprintf("https://github.com/lingtong/cli/releases/tag/%s", latest)
+		result["releaseURL"] = fmt.Sprintf("https://github.com/usiboy/lingtong-cli/releases/tag/%s", latest)
 	} else {
 		result["message"] = fmt.Sprintf("You are up to date (version %s)", current)
 	}
@@ -162,7 +162,7 @@ func getInstallInstructions(version string) []map[string]string {
 	// npm installation
 	instructions = append(instructions, map[string]string{
 		"method":  "npm",
-		"command": "npm install -g lingtong-cli",
+		"command": "npm install -g @lingtong-cli/cli",
 	})
 
 	// go install
@@ -172,7 +172,7 @@ func getInstallInstructions(version string) []map[string]string {
 	})
 
 	// Binary download
-	downloadURL := fmt.Sprintf("https://github.com/lingtong/cli/releases/download/%s/lingtong-cli-%s-%s",
+	downloadURL := fmt.Sprintf("https://github.com/usiboy/lingtong-cli/releases/download/%s/lingtong-cli-%s-%s",
 		version, osName, runtime.GOARCH)
 	instructions = append(instructions, map[string]string{
 		"method":  "binary",

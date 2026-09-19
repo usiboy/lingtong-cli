@@ -42,15 +42,27 @@
 ### 安装 CLI
 
 ```bash
-# 方式一：npm 安装
-# 当前 update 命令提示的 npm 包名为 lingtong-cli；如内部镜像使用 scoped 包，请以发布渠道为准。
-npm install -g lingtong-cli
+# 方式一：通过 npx 下载并安装到用户目录
+npx @lingtong-cli/cli@latest install
+lingtong-cli --version
 
-# 方式二：源码安装
+# 方式二：npm 全局安装
+npm install -g @lingtong-cli/cli
+
+# 方式三：源码安装
 cd lingtong-cli
 make install
 
-# 方式三：Go 安装
+```
+
+`npx ... install` 默认安装到 macOS/Linux 的 `~/.local/bin`，Windows 的
+`%LOCALAPPDATA%\Lingtong\bin`。可通过 `LINGTONG_CLI_INSTALL_DIR` 指定目录；
+如果 GitHub Release 不可达，可通过 `LINGTONG_CLI_DOWNLOAD_BASE` 指定 HTTPS 制品镜像。
+
+也可以把以下指令发送给 Cursor、Claude Code、OpenCode 等 Agent：
+
+```text
+帮我安装绫通 CLI，并按照 doc/LINGTONG_CLI_INSTALL_GUIDE_AGENT.md 完成版本和环境自检。
 ```
 
 ### 初始化、登录、验证
