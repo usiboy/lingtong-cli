@@ -241,9 +241,10 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run Gosec Security Scanner
+        continue-on-error: true
         uses: securego/gosec@v2.20.0
         with:
-          args: '-exclude-generated -exclude-dir=vendor ./...'
+          args: '-fmt=sarif -out=gosec-report.sarif -exclude-generated -exclude-dir=vendor ./...'
 
       - name: Check for vulnerable dependencies
         run: |

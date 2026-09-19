@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	storeToken      = auth.StoreToken
-	getToken        = auth.GetToken
-	deleteToken     = auth.DeleteToken
-	verifyTokenFunc = verifyToken
+	storeToken        = auth.StoreToken
+	storeTokenForAuth = auth.StoreTokenForAuth
+	getToken          = auth.GetToken
+	deleteToken       = auth.DeleteToken
+	verifyTokenFunc   = verifyToken
 )
 
 // NewCmdAuth creates the auth command.
@@ -123,7 +124,7 @@ EXAMPLES:
 
 			// Store token in OS keychain (multi-auth format)
 			profileName := f.EffectiveProfile()
-			err = auth.StoreTokenForAuth(profileName, label, token)
+			err = storeTokenForAuth(profileName, label, token)
 			if err != nil {
 				return fmt.Errorf("failed to store token: %w", err)
 			}

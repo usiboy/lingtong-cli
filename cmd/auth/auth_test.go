@@ -415,8 +415,14 @@ func TestNewCmdAuthLogin_TokenFromEnv_WithValue(t *testing.T) {
 	token := "apk-env-test-token"
 	var storedToken string
 	var verifiedToken string
-	overrideAuthDependencies(t, func(token string) error {
+	originalStoreTokenForAuth := storeTokenForAuth
+	storeTokenForAuth = func(_, _ string, token string) error {
 		storedToken = token
+		return nil
+	}
+	t.Cleanup(func() { storeTokenForAuth = originalStoreTokenForAuth })
+	t.Setenv("HOME", t.TempDir())
+	overrideAuthDependencies(t, func(token string) error {
 		return nil
 	}, nil, nil, func(host, token string) error {
 		assert.Equal(t, "https://test.example.com", host)
