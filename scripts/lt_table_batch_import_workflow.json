@@ -1,0 +1,207 @@
+{
+  "environment": "formal",
+  "name": "纤莉秀订单商品明细批量导入",
+  "viewport": {
+    "x": 52,
+    "y": 11,
+    "zoom": 1
+  },
+  "nodes": [
+    {
+      "id": "w_start_first",
+      "type": "w_start",
+      "dragging": false,
+      "width": 256,
+      "height": 92,
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "positionAbsolute": {
+        "x": 100,
+        "y": 100
+      },
+      "selected": false,
+      "data": {
+        "title": "开始",
+        "desc": "",
+        "disabled": false,
+        "outputVariables": [
+          {
+            "variable": "connector",
+            "variableAttr": {
+              "dataType": "text",
+              "label": "连接器名称",
+              "required": true
+            }
+          },
+          {
+            "variable": "method",
+            "variableAttr": {
+              "dataType": "text",
+              "label": "方法名",
+              "required": true
+            }
+          },
+          {
+            "variable": "authAccount",
+            "variableAttr": {
+              "dataType": "text",
+              "label": "认证账户名称",
+              "required": true
+            }
+          },
+          {
+            "variable": "body",
+            "variableAttr": {
+              "dataType": "json",
+              "label": "请求体"
+            }
+          },
+          {
+            "variable": "env",
+            "variableAttr": {
+              "dataType": "text",
+              "label": "环境",
+              "required": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "w_script_import",
+      "type": "w_script",
+      "dragging": false,
+      "width": 256,
+      "height": 58,
+      "position": {
+        "x": 416,
+        "y": 100
+      },
+      "positionAbsolute": {
+        "x": 416,
+        "y": 100
+      },
+      "selected": false,
+      "data": {
+        "title": "批量保存表格记录",
+        "desc": "调用 ltTable 批量保存",
+        "disabled": false,
+        "pids": [
+          "w_start_first"
+        ],
+        "inputVariables": [
+          {
+            "variable": "connector",
+            "variableAttr": {
+              "value": "$w_start_first.connector",
+              "dataType": "text"
+            }
+          },
+          {
+            "variable": "method",
+            "variableAttr": {
+              "value": "$w_start_first.method",
+              "dataType": "text"
+            }
+          },
+          {
+            "variable": "authAccount",
+            "variableAttr": {
+              "value": "$w_start_first.authAccount",
+              "dataType": "text"
+            }
+          },
+          {
+            "variable": "body",
+            "variableAttr": {
+              "value": "$w_start_first.body",
+              "dataType": "json"
+            }
+          },
+          {
+            "variable": "env",
+            "variableAttr": {
+              "value": "$w_start_first.env",
+              "dataType": "text"
+            }
+          }
+        ],
+        "scriptConfig": {
+          "language": "javascript",
+          "script": "var connector = context.get(\"connector\");\nvar method = context.get(\"method\");\nvar authAccount = context.get(\"authAccount\");\nvar body = context.get(\"body\") || {};\nvar env = context.get(\"env\");\nif (!connector || !method || !authAccount) {\n    throw \"connector, method and authAccount are required\";\n}\ncontext.put(\"_env\", env);\nreturn AppInvoker.invoke(context, method, authAccount, body);"
+        },
+        "outputVariables": [
+          {
+            "variable": "result",
+            "variableAttr": {
+              "dataType": "json",
+              "schema": ""
+            }
+          }
+        ],
+        "assertConfig": {
+          "assertType": "throwException"
+        }
+      }
+    },
+    {
+      "id": "w_end_result",
+      "type": "w_end",
+      "dragging": false,
+      "width": 256,
+      "height": 92,
+      "position": {
+        "x": 732,
+        "y": 100
+      },
+      "positionAbsolute": {
+        "x": 732,
+        "y": 100
+      },
+      "selected": false,
+      "data": {
+        "title": "结束",
+        "desc": "",
+        "disabled": false,
+        "pids": [
+          "w_script_import"
+        ],
+        "outputVariables": [
+          {
+            "variable": "result",
+            "variableAttr": {
+              "dataType": "json",
+              "value": "$w_script_import.result",
+              "nodeId": "w_end_result",
+              "schemaObj": {
+                "fullPath": "",
+                "schemaNodeVariable": "result",
+                "schemaNodeId": "w_script_import"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "w_start_first",
+      "target": "w_script_import",
+      "sourceHandle": "source",
+      "targetHandle": "target",
+      "type": "rounded-corner"
+    },
+    {
+      "id": "e2",
+      "source": "w_script_import",
+      "target": "w_end_result",
+      "sourceHandle": "source",
+      "targetHandle": "target",
+      "type": "rounded-corner"
+    }
+  ]
+}
