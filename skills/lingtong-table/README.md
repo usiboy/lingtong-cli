@@ -47,6 +47,8 @@ lingtong-cli table data batch-create --basic-data-id 1568 --schema-id 2367 --rec
 | 目标 | 命令 |
 |------|------|
 | 查询记录 | `lingtong-cli table data query --basic-data-id <id>` |
+| 按记录 ID 查询 | `lingtong-cli table data query --basic-data-id <id> --id 1001` 或 `--ids 1001,1002` |
+| 按业务主键查询 | `lingtong-cli table data query --basic-data-id <id> --primary '订单-001'` 或 `--primary-key '["订单-001","订单-002"]'` |
 | 字段精确过滤 | `lingtong-cli table data query --basic-data-id <id> --filter '{"1":"系统订单"}'` |
 | 全文搜索 | `lingtong-cli table data query --basic-data-id <id> --text 系统订单` |
 | 创建记录 | `lingtong-cli table data create --basic-data-id <id> --schema-id <id> --data '<json>'` |
@@ -58,6 +60,7 @@ lingtong-cli table data batch-create --basic-data-id 1568 --schema-id 2367 --rec
 | 批量删除 | `lingtong-cli table data batch-delete --schema-id <id> --ids 1,2,3 --yes` |
 
 记录数据的 key 通常是字段 ID 字符串，例如 `{"1":"值"}`。先用 `table schema query` 确认字段 ID 和字段类型。
+部署了对应服务端改动后，非空白 `--primary`、非空 `--primary-key`/`--ids` 或指定 `--id` 会使记录列表查询绕过 ES，直接读取表对应的 MySQL 或 PostgreSQL；多个条件共同生效。
 批量创建调用 `batchSave`，同批次主键重复会失败；与已有主键相同的数据会全字段更新，未提供的字段可能被清空。Excel 文件需先转换为 `[{"data":{"1":"值"}}]` 格式的 JSON 文件。
 
 更新和批量更新同样会替换完整 `data`，不是安全的局部字段更新。先用 `table data query --omit-null=false` 读取完整记录，保留业务主键与 `updated`，在原 `data` 上修改后再提交。宽表或大量更新使用 `batch-update --records-file`。

@@ -191,6 +191,45 @@ func TestNewCmdTableDataQuery_ProxyPath(t *testing.T) {
 	}
 }
 
+// 验证四种精确条件分别按服务端字段名和类型传入记录列表接口。
+func TestNewCmdTableDataQuery_ExactConditions(t *testing.T) {
+	tests := []struct {
+		name  string
+		flag  string
+		value string
+		field string
+		want  string
+	}{
+		{"单条记录", "--id", "1001", "id", "1001"},
+		{"记录列表", "--ids", "1001,1002", "ids", "[1001,1002]"},
+		{"单个业务主键", "--primary", "订单-001", "primary", `"订单-001"`},
+		{"业务主键列表", "--primary-key", `["订单-001","订单-002"]`, "primaryKey", `["订单-001","订单-002"]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				req := decodeProxyRequest(t, r)
+				if req.Path != "/basicdata/record/listNew" || req.Method != "POST" {
+					t.Errorf("unexpected request: %s %s", req.Method, req.Path)
+				}
+				got, err := json.Marshal(req.Body[tt.field])
+				if err != nil || string(got) != tt.want {
+					t.Errorf("字段 %s = %s，期望 %s，错误 %v", tt.field, got, tt.want, err)
+				}
+				writeProxyResponse(t, w, map[string]interface{}{"success": true, "result": map[string]interface{}{"data": []interface{}{}}})
+			}))
+			defer server.Close()
+			f, _, errOut := newTestFactory(server.URL)
+			cmd := NewCmdTable(f)
+			cmd.SetErr(errOut)
+			cmd.SetArgs([]string{"data", "query", "--basic-data-id", "1553", tt.flag, tt.value})
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("查询失败: %v", err)
+			}
+		})
+	}
+}
+
 func TestNewCmdTableDataQuery_WithFilters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyReq := decodeProxyRequest(t, r)

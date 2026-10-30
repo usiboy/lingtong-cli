@@ -128,7 +128,7 @@ lingtong-cli table update --id 1568 --open-connector 1 --open-high-mode 1
 ```bash
 lingtong-cli table data query --basic-data-id <id> \
   [--text <string>] [--filter <json>] [--view-id <id>] \
-  [--ids <csv>] \
+  [--id <record-id>] [--ids <csv>] [--primary <value>] \
   [--start-update-time <ms>] [--end-update-time <ms>] \
   [--primary-key <json-array>] \
   [--page <n>] [--page-size <n>] \
@@ -142,7 +142,9 @@ lingtong-cli table data query --basic-data-id <id> \
 | `--text` | 全文搜索（MySQL 模式：LIKE 模糊匹配） |
 | `--filter` | 字段级精确匹配（JSON：`{"fieldKey":"value"}`） |
 | `--view-id` | 视图 ID（加载已保存的过滤/排序配置） |
+| `--id` | 按单条记录 ID 精确筛选 |
 | `--ids` | 按记录 ID 列表筛选，逗号分隔（如 `1001,1002`） |
+| `--primary` | 按单个业务主键值精确筛选 |
 | `--start-update-time` | 更新时间起始（毫秒时间戳） |
 | `--end-update-time` | 更新时间截止（毫秒时间戳） |
 | `--primary-key` | 按主键值筛选（JSON 数组） |
@@ -152,6 +154,8 @@ lingtong-cli table data query --basic-data-id <id> \
 | `--order-asc` | 升序排列（默认降序） |
 | `--omit-null=false` | 保留 null 字段；全字段更新前必须使用，避免读改写时丢字段 |
 | `--view-group-data` | 分组明细查询 JSON（从 `table view group-data` 响应获取） |
+
+在包含“基础资料精确条件查询直接读取数据库”改动的服务端，`--primary` 非空白、`--primary-key` 或 `--ids` 非空，或指定 `--id` 时，记录列表查询绕过 ES，按表存储类型直接查询 MySQL 或 PostgreSQL。多个条件同时传入时共同生效；空数组和空白主键不会触发该路由。其他条件仍按原有路由处理，目标环境需部署对应服务端版本。
 
 **过滤模式说明**：
 
@@ -192,6 +196,11 @@ lingtong-cli table data query --basic-data-id 1553 --view-id 456
 
 # 按记录 ID 筛选
 lingtong-cli table data query --basic-data-id 1553 --ids 1001,1002,1003
+lingtong-cli table data query --basic-data-id 1553 --id 1001
+
+# 按业务主键筛选
+lingtong-cli table data query --basic-data-id 1553 --primary '订单-001'
+lingtong-cli table data query --basic-data-id 1553 --primary-key '["订单-001","订单-002"]'
 
 # 按更新时间范围过滤
 lingtong-cli table data query --basic-data-id 1553 \

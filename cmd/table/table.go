@@ -413,7 +413,8 @@ func newCmdTableData(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdTableDataQuery(f *cmdutil.Factory) *cobra.Command {
 	var basicDataId int
-	var text, filter, idsStr, primaryKeyStr, orderBy, viewGroupDataStr string
+	var text, filter, idsStr, primary, primaryKeyStr, orderBy, viewGroupDataStr string
+	var recordID int64
 	var viewId int
 	var startUpdateTime, endUpdateTime int64
 	var page, pageSize int
@@ -425,6 +426,9 @@ func newCmdTableDataQuery(f *cmdutil.Factory) *cobra.Command {
 		Long: `Query table data with full search, filter, pagination and sorting support.
 
 Uses POST /basicdata/record/listNew endpoint with full backend parameter support.
+On server versions supporting exact database queries, a nonblank --primary,
+nonempty --primary-key or --ids, or a supplied --id bypasses ES and queries
+the table's MySQL or PostgreSQL storage directly. Multiple conditions combine.
 
 FILTER MODES:
   --text     Full-text search (MySQL: LIKE match on data field)
@@ -450,12 +454,14 @@ EXAMPLES:
 
     # Filter by record IDs
     lingtong-cli table data query --basic-data-id 123 --ids 1001,1002,1003
+    lingtong-cli table data query --basic-data-id 123 --id 1001
 
     # Filter by update time range (millisecond timestamps)
     lingtong-cli table data query --basic-data-id 123 --start-update-time 1700000000000 --end-update-time 1700100000000
 
     # Filter by primary key value
     lingtong-cli table data query --basic-data-id 123 --primary-key '["pk_value"]'
+    lingtong-cli table data query --basic-data-id 123 --primary 'pk_value'
 
     # Paginate and sort
     lingtong-cli table data query --basic-data-id 123 --page 2 --page-size 50 --order-by created --order-asc
@@ -484,6 +490,12 @@ EXAMPLES:
 			}
 			if viewId != 0 {
 				body["viewId"] = viewId
+			}
+			if cmd.Flags().Changed("id") {
+				body["id"] = recordID
+			}
+			if primary != "" {
+				body["primary"] = primary
 			}
 			if idsStr != "" {
 				var ids []int64
@@ -543,7 +555,9 @@ EXAMPLES:
 	cmd.Flags().StringVar(&text, "text", "", "Full-text search (MySQL: LIKE match)")
 	cmd.Flags().StringVar(&filter, "filter", "", "Field-level exact match (JSON: {\"fieldKey\":\"value\"})")
 	cmd.Flags().IntVar(&viewId, "view-id", 0, "View ID (loads saved filter/sort config)")
+	cmd.Flags().Int64Var(&recordID, "id", 0, "Exact record ID")
 	cmd.Flags().StringVar(&idsStr, "ids", "", "Comma-separated record IDs (e.g. 1001,1002)")
+	cmd.Flags().StringVar(&primary, "primary", "", "Exact business primary key value")
 	cmd.Flags().Int64Var(&startUpdateTime, "start-update-time", 0, "Update time start (ms timestamp)")
 	cmd.Flags().Int64Var(&endUpdateTime, "end-update-time", 0, "Update time end (ms timestamp)")
 	cmd.Flags().StringVar(&primaryKeyStr, "primary-key", "", "Primary key filter (JSON array)")
