@@ -1,0 +1,66 @@
+{
+  "appId": 942,
+  "name": "示例：渠道占比",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "pieCharts",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8,
+        "minW": 4,
+        "minH": 5
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "pieCharts",
+        "title": "渠道占比",
+        "type": "chart",
+        "displayType": "pieCharts",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [
+            {
+              "id": "m_sales",
+              "field": "data2001.2",
+              "type": "sum",
+              "alias": "销售额",
+              "expand": false,
+              "disabled": false
+            }
+          ],
+          "dimensions": [
+            {
+              "id": "d_channel",
+              "field": "data2001.4",
+              "type": "term",
+              "alias": "渠道",
+              "expand": false,
+              "disabled": false,
+              "displayModel": "normal",
+              "splitModel": "row",
+              "config": {
+                "sortByMeasureId": "m_sales",
+                "sortOrder": "desc",
+                "sortCount": 10,
+                "groupOther": false
+              }
+            }
+          ]
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": true
+        }
+      }
+    ]
+  }
+}

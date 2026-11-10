@@ -364,7 +364,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 
 ## Agent Skills
 
-本版本构建后内置 13 个有效 Skills。可通过 `lingtong-cli skills list` 查看当前二进制的实时清单。
+本版本构建后内置 14 个有效 Skills。可通过 `lingtong-cli skills list` 查看当前二进制的实时清单。
 
 | Skill | 说明 |
 |-------|------|
@@ -377,6 +377,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `lingtong-table` | 表格 CRUD、Schema、公式入口、记录 CRUD、视图、分组、统计 |
 | `lingtong-kmmdtable` | 快麦多维表格模块入口：资源与文件夹、仪表盘、自定义页面及权限；复用表格和透视表 Skill |
 | `lingtong-table-formula` | 公式字段、函数参考、完整 Schema 更新、ES Runtime Field/Painless 排查 |
+| `lingtong-dashboard` | 九类仪表盘组件、配置示例、数据绑定、筛选、布局和离线校验 |
 | `lingtong-pivot-table` | 透视表查询、配置、维度/度量聚合 |
 | `lingtong-model` | 接口模型、领域模型、动态模型视图 |
 | `lingtong-service` | OpenAPI 自动命令层，覆盖长尾 API |
@@ -385,6 +386,8 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 `skills/lingtong-basicdata/` 是历史遗留目录，不再作为有效 Skill 内置。基础资料操作已合并到 `lingtong-table`。
 
 公式能力通过现有 `table schema query/update` 配置。详细用法见 [公式技能](skills/lingtong-table-formula/SKILL.md)，源码核查记录见 [公式技能遗漏核查](doc/table-formula-skill-audit.md)。更新技能需先更新/重新构建 CLI，再执行 `skills install`；旧二进制不会动态读取源码目录。
+
+仪表盘技能包含九类组件最小示例、经营概览及高级配置示例；使用 Node.js 18+ 运行离线校验，不访问线上接口。维护检查：`make test-dashboard-skill`。完整用法见 [仪表盘技能](skills/lingtong-dashboard/SKILL.md)。
 
 ## 安装 Skills 到 AI 编辑器
 
@@ -397,7 +400,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | Qoder | `~/.qoder/skills` / `.qoder/skills` | `AGENTS.md` |
 | Cursor | `~/.cursor/skills` / `.cursor/skills` | `AGENTS.md` |
 | Trae | `~/.trae/skills` / `.trae/skills` | `AGENTS.md` |
-| Codex | 无独立 Skills 目录 | `AGENTS.md`、`~/.codex/AGENTS.md` |
+| Codex | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`、`~/.codex/AGENTS.md` |
 
 安装行为：
 
