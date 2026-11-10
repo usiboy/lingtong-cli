@@ -1,0 +1,75 @@
+[
+  {
+    "tableId": 1001,
+    "viewId": "8002",
+    "businessId": 1001,
+    "businessType": 2,
+    "config": {
+      "measures": [
+        {
+          "id": "pm_sales",
+          "field": "data2001.2",
+          "type": "sum",
+          "alias": "销售额",
+          "disabled": false,
+          "config": {}
+        }
+      ],
+      "dimensions": [
+        {
+          "id": "pd_shop",
+          "field": "data2001.1",
+          "type": "term",
+          "alias": "店铺",
+          "disabled": false,
+          "config": {
+            "sortByMeasureId": "pm_sales",
+            "sortOrder": "desc",
+            "sortCount": 10,
+            "groupOther": false
+          }
+        },
+        {
+          "id": "pd_channel",
+          "field": "data2001.4",
+          "type": "term",
+          "alias": "渠道",
+          "disabled": false,
+          "config": {
+            "sortByMeasureId": "",
+            "sortOrder": "asc",
+            "sortCount": 5,
+            "groupOther": false
+          }
+        }
+      ],
+      "advanced": {
+        "openDimensionSplit": true,
+        "colDimensionId": "pd_channel",
+        "displayMode": "cross",
+        "openStatistic": true,
+        "totalMeasures": [
+          {
+            "id": "pm_sales",
+            "alias": "销售额合计",
+            "type": "sum",
+            "disabled": false
+          }
+        ]
+      },
+      "other": {
+        "maxRowsPerPage": 50,
+        "showSummary": true,
+        "otherExtractConfigVOList": [
+          {
+            "id": "pm_sales",
+            "field": "data2001.2",
+            "type": "measure",
+            "summaryType": "sum",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  }
+]

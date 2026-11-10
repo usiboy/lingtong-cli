@@ -1,0 +1,71 @@
+{
+  "appId": 942,
+  "name": "示例：销售面积趋势",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "areaCharts",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8,
+        "minW": 4,
+        "minH": 5
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "areaCharts",
+        "title": "销售面积趋势",
+        "type": "chart",
+        "displayType": "areaCharts",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [
+            {
+              "id": "m_sales",
+              "field": "data2001.2",
+              "type": "sum",
+              "alias": "销售额",
+              "expand": false,
+              "disabled": false,
+              "styleConfig": {
+                "chartType": "area",
+                "valueAxisPosition": "left",
+                "seriesStack": "normal",
+                "scaleType": "line",
+                "align": "horizontal"
+              }
+            }
+          ],
+          "dimensions": [
+            {
+              "id": "d_date",
+              "field": "data2001.3",
+              "type": "date_histogram",
+              "alias": "日期",
+              "expand": false,
+              "disabled": false,
+              "displayModel": "normal",
+              "splitModel": "row",
+              "config": {
+                "miniInterval": "1d",
+                "miniIntervalTitle": "1天"
+              }
+            }
+          ]
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,433 @@
+{
+  "appId": 942,
+  "name": "示例：切片器配置图谱（不要一次启用所有筛选）",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "metric_sales",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 5,
+        "minW": 4,
+        "minH": 5
+      },
+      {
+        "i": "dropdown",
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "tile",
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "search",
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "number",
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "date",
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "custom_date",
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "recent_date",
+        "x": 0,
+        "y": 23,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      },
+      {
+        "i": "exact_date",
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 3,
+        "minW": 4,
+        "minH": 3
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "metric_sales",
+        "title": "销售额",
+        "type": "chart",
+        "displayType": "metricCard",
+        "dataConfig": {
+          "multiMetricEnabled": false,
+          "sources": [
+            {
+              "id": "metric_sales_source",
+              "tableId": 1001,
+              "tableFilters": [],
+              "aggregation": {
+                "type": "sum",
+                "field": "data2001.2",
+                "alias": "销售额"
+              },
+              "compareConfig": {
+                "enabled": false,
+                "dateField": "data2001.3",
+                "timeRangeType": "thisMonthToDate",
+                "amount": null,
+                "customRange": null,
+                "label": "月同比",
+                "compareType": "month",
+                "resultType": "rate"
+              },
+              "styleConfig": {
+                "description": "示例指标，请替换真实数据源",
+                "showPresetDateRange": false,
+                "backgroundColor": "#ffffff",
+                "textColor": "#1f2937",
+                "backgroundOpacity": 100,
+                "textOpacity": 100,
+                "backgroundBlur": 0,
+                "fontSizeMode": "auto",
+                "labelFontSize": 13,
+                "valueFontSize": 30,
+                "compareLabelFontSize": 12,
+                "compareValueFontSize": 12,
+                "precision": 2,
+                "numberFormat": "numberThousands",
+                "unit": "",
+                "thousandSeparator": true
+              }
+            }
+          ],
+          "multiMetricConfig": {
+            "displayMode": "number",
+            "sortOrder": "sequence",
+            "align": "left",
+            "percentage": {
+              "mode": "none",
+              "denominatorSourceId": null
+            },
+            "chartFormat": {
+              "precision": 2,
+              "numberFormat": "numberThousands"
+            }
+          }
+        }
+      },
+      {
+        "id": "dropdown",
+        "title": "店铺筛选",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.1",
+          "fieldType": "text",
+          "style": "dropdown",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "eq",
+          "defaultValue": null,
+          "value": null,
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": false
+        }
+      },
+      {
+        "id": "tile",
+        "title": "店铺筛选",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.1",
+          "fieldType": "text",
+          "style": "tile",
+          "selectionMode": "multiple",
+          "sortOrder": "asc",
+          "operator": "eq",
+          "defaultValue": [
+            "旗舰店",
+            "专营店"
+          ],
+          "value": [
+            "旗舰店",
+            "专营店"
+          ],
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": false
+        }
+      },
+      {
+        "id": "search",
+        "title": "店铺筛选",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.1",
+          "fieldType": "text",
+          "style": "search",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "eq",
+          "defaultValue": null,
+          "value": "旗舰店",
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": false
+        }
+      },
+      {
+        "id": "number",
+        "title": "销售额区间",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.2",
+          "fieldType": "number",
+          "style": "number",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "between",
+          "defaultValue": [
+            0,
+            10000
+          ],
+          "value": [
+            0,
+            10000
+          ],
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": false
+        }
+      },
+      {
+        "id": "date",
+        "title": "成交日期",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.3",
+          "fieldType": "date",
+          "style": "date",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "between",
+          "defaultValue": "thisMonthToDate",
+          "value": "thisMonthToDate",
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": true
+        }
+      },
+      {
+        "id": "custom_date",
+        "title": "成交日期",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.3",
+          "fieldType": "date",
+          "style": "date",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "between",
+          "defaultValue": "custom",
+          "value": "custom",
+          "amount": null,
+          "customRange": {
+            "start": "2026-01-01",
+            "end": "2026-01-31"
+          },
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": true
+        }
+      },
+      {
+        "id": "recent_date",
+        "title": "成交日期",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.3",
+          "fieldType": "date",
+          "style": "date",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "between",
+          "defaultValue": "recentDays",
+          "value": "recentDays",
+          "amount": 7,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": true
+        }
+      },
+      {
+        "id": "exact_date",
+        "title": "成交日期",
+        "type": "other",
+        "displayType": "slicer",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "field": "data2001.3",
+          "fieldType": "date",
+          "style": "date",
+          "selectionMode": "single",
+          "sortOrder": "asc",
+          "operator": "gt",
+          "defaultValue": "2026-01-01",
+          "value": "2026-01-01",
+          "amount": null,
+          "customRange": null,
+          "optionLimit": 10
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false,
+          "showOperator": true,
+          "showPresetDateRange": true
+        }
+      }
+    ]
+  }
+}

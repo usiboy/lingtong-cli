@@ -8,7 +8,7 @@ DATE     := $(shell date +%Y-%m-%d)
 LDFLAGS  := -s -w -X $(MODULE)/internal/build.Version=$(VERSION) -X $(MODULE)/internal/build.Date=$(DATE)
 PREFIX   ?= /usr/local
 
-.PHONY: build vet test unit-test integration-test install install-skills uninstall clean gen-docs check-docs
+.PHONY: build vet test unit-test integration-test test-dashboard-skill install install-skills uninstall clean gen-docs check-docs
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BINARY) .
@@ -17,13 +17,16 @@ vet:
 	go vet ./...
 
 unit-test:
-	go test -race -count=1 ./cmd/... ./internal/... ./shortcuts/...
+	go test -race -count=1 . ./cmd/... ./internal/... ./shortcuts/...
 
 integration-test: build
 	./$(BINARY) --help >/dev/null
 	./$(BINARY) --version >/dev/null
 
-test: vet unit-test integration-test
+test: vet unit-test integration-test test-dashboard-skill
+
+test-dashboard-skill:
+	node --test test/dashboard-skill/*.test.mjs
 
 # Generate markdown documentation for all CLI commands
 gen-docs:

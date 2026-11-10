@@ -27,7 +27,7 @@ lingtong-cli api GET /app/resource/list --params '{"appId":942}' --envelope
 | 查询资源、新建文件夹、嵌套移动、排序、改名、换图标、删除 | [资源与文件夹](references/resources.md) |
 | 表格、字段、记录、视图、分组、导入导出与同步 | [lingtong-table](../lingtong-table/SKILL.md) |
 | 透视表的维度、度量、聚合及显示配置 | [lingtong-pivot-table](../lingtong-pivot-table/SKILL.md) |
-| 仪表盘组件、数据源和布局 | [仪表盘流程](references/dashboards.md) |
+| 仪表盘组件、数据源和布局 | [lingtong-dashboard](../lingtong-dashboard/SKILL.md) |
 | 新建页面或为已有 pageId 开发内容 | [自定义页面开发](references/custom-page.md) |
 | 页面管理、草稿回传、发布及历史 | [页面接口与回传](references/page-api.md) |
 | 角色、成员、功能权限与资源访问权限 | [角色与资源权限](references/permissions.md) |
