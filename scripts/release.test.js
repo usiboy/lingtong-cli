@@ -121,3 +121,65 @@ test("npm packaging rejects missing, malformed, or mismatched checksums", () => 
   assert.throws(() => validateChecksums(content.replace(/a/g, "x"), "0.1.1"), /checksum/i);
   assert.throws(() => validateChecksums(content, "0.1.2"), /checksum/i);
 });
+
+function pollOptions(fetchFn, overrides = {}) {
+  return { fetchFn, sleepFn: async () => {}, logFn: () => {}, attempts: 3, intervalMs: 0, ...overrides };
+}
+
+test("post-publish verification waits through npm processing 404s until the exact version appears", async () => {
+  const { waitForPublication } = require("./release.js");
+  let calls = 0;
+  let sleeps = 0;
+  const result = await waitForPublication("0.1.1", pollOptions(async (url) => {
+    assert.equal(url, "https://registry.npmjs.org/@lingtong-cli%2Fcli/0.1.1");
+    calls++;
+    return calls < 3 ? new Response("", { status: 404 }) : Response.json({ version: "0.1.1" });
+  }, { sleepFn: async () => { sleeps++; } }));
+  assert.equal(result, "0.1.1");
+  assert.equal(calls, 3);
+  assert.equal(sleeps, 2);
+});
+
+test("an already visible publication is confirmed without sleeping", async () => {
+  const { waitForPublication } = require("./release.js");
+  const result = await waitForPublication("0.1.1", pollOptions(async () => Response.json({ version: "0.1.1" }), {
+    sleepFn: async () => assert.fail("must not sleep after success"),
+  }));
+  assert.equal(result, "0.1.1");
+});
+
+test("registry verification has a bounded retry count and never treats persistent 404 as success", async () => {
+  const { waitForPublication } = require("./release.js");
+  let calls = 0;
+  await assert.rejects(waitForPublication("0.1.1", pollOptions(async () => {
+    calls++;
+    return new Response("", { status: 404 });
+  })), /not visible after 3 attempts.*HTTP 404/);
+  assert.equal(calls, 3);
+});
+
+test("temporary network and registry failures can recover without republishing", async () => {
+  const { waitForPublication } = require("./release.js");
+  let calls = 0;
+  assert.equal(await waitForPublication("0.1.1", pollOptions(async () => {
+    calls++;
+    if (calls === 1) throw new TypeError("network unavailable");
+    if (calls === 2) return new Response("", { status: 503 });
+    return Response.json({ version: "0.1.1" });
+  })), "0.1.1");
+});
+
+test("permission errors fail immediately rather than being hidden by retries", async () => {
+  const { waitForPublication } = require("./release.js");
+  let calls = 0;
+  await assert.rejects(waitForPublication("0.1.1", pollOptions(async () => {
+    calls++;
+    return new Response("", { status: 403 });
+  })), /HTTP 403/);
+  assert.equal(calls, 1);
+});
+
+test("registry verification rejects a mismatched version", async () => {
+  const { waitForPublication } = require("./release.js");
+  await assert.rejects(waitForPublication("0.1.1", pollOptions(async () => Response.json({ version: "0.1.0" }))), /version mismatch/);
+});

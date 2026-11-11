@@ -141,14 +141,18 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           TARBALL: ${{ steps.package.outputs.tarball }}
           NPM_DIST_TAG: ${{ steps.plan.outputs.npmTag }}
-          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then
             echo "::error::Missing repository Actions secret NPM_TOKEN"
             exit 1
           fi
           npm publish "$TARBALL" --access public --tag "$NPM_DIST_TAG" --registry https://registry.npmjs.org
-          npm view "@lingtong-cli/cli@$RELEASE_VERSION" version --registry https://registry.npmjs.org
+
+      - name: Wait for npm registry propagation
+        if: steps.trigger.outputs.enabled == 'true' && steps.plan.outputs.published != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
+        run: node "$RUNNER_TEMP/lingtong-release.js" wait-published
 
       - name: Release summary
         if: always() && steps.plan.outputs.tag != ''

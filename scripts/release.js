@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const { execFileSync, spawnSync } = require("node:child_process");
+const { setTimeout: sleep } = require("node:timers/promises");
 
 const REGISTRY = "https://registry.npmjs.org";
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -93,6 +94,41 @@ function validateChecksums(content, version) {
   }
 }
 
+async function waitForPublication(version, {
+  fetchFn = fetch, sleepFn = sleep, logFn = console.log, attempts = 31, intervalMs = 10000,
+} = {}) {
+  if (!stable(version)) throw new Error("Registry verification requires a stable release version");
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    let response;
+    try {
+      response = await fetchFn(`${REGISTRY}/@lingtong-cli%2Fcli/${version}`, {
+        signal: AbortSignal.timeout(10000), cache: "no-store",
+      });
+    } catch (error) {
+      lastError = error.name || "network error";
+    }
+    if (response) {
+      if (response.ok) {
+        const metadata = await response.json();
+        if (metadata.version !== version) throw new Error("npm registry version mismatch");
+        logFn(`Confirmed @lingtong-cli/cli@${version} is visible in the npm registry`);
+        return version;
+      }
+      lastError = `HTTP ${response.status}`;
+      if (![404, 408, 429].includes(response.status) && response.status < 500) {
+        throw new Error(`npm registry verification failed: ${lastError}`);
+      }
+      await response.body?.cancel();
+    }
+    if (attempt < attempts) {
+      logFn(`Waiting for npm registry propagation (${attempt}/${attempts}, ${lastError}); not republishing`);
+      await sleepFn(intervalMs);
+    }
+  }
+  throw new Error(`npm version ${version} not visible after ${attempts} attempts (${lastError}); check registry status before retrying, do not republish blindly`);
+}
+
 function output(values) {
   console.log(JSON.stringify(values, null, 2));
   if (process.env.GITHUB_OUTPUT) {
@@ -133,8 +169,10 @@ async function main(command) {
   } else if (command === "checksums") {
     validateChecksums(fs.readFileSync("checksums.txt", "utf8"), process.env.RELEASE_VERSION);
     console.log("All six release archives have SHA-256 checksums");
+  } else if (command === "wait-published") {
+    await waitForPublication(process.env.RELEASE_VERSION);
   } else {
-    throw new Error("Usage: node scripts/release.js plan|release-state|checksums");
+    throw new Error("Usage: node scripts/release.js plan|release-state|checksums|wait-published");
   }
 }
 
@@ -145,4 +183,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { planRelease, isBehindRelease, releaseAssets, isCompleteRelease, validateChecksums };
+module.exports = { planRelease, isBehindRelease, releaseAssets, isCompleteRelease, validateChecksums, waitForPublication };
