@@ -1,14 +1,14 @@
 ---
 name: lingtong-connector
 version: 2.0.0
-description: "绫通连接器管理：查询连接器详情、类目列表、模型元数据、账户授权认证、连接器接口调用（invoke）。当用户需要查询连接器配置、获取接口模型、了解数据结构、管理连接器账户授权、调用连接器方法时触发。关键词：connector、连接器、invoke、connector invoke、methods、cache、AppInvoker。"
+description: "绫通连接器管理：查询连接器详情、类目列表、模型元数据、账户授权认证、连接器接口调用（invoke）。当用户需要查询连接器配置、获取接口模型、了解数据结构、管理连接器账户授权、调用连接器方法时触发。关键词：connector、连接器、invoke、connector invoke、methods。"
 ---
 
 # lingtong-connector 技能
 
 ## 概述
 
-本技能指导你如何通过 `lingtong-cli` 查询和管理绫通平台的连接器，包括连接器账户的授权认证管理，以及**通过通用工作流调用任意连接器接口**。
+本技能指导你如何通过 `lingtong-cli` 查询和管理绫通平台的连接器，包括连接器账户的授权认证管理，以及**通过通用代理调用连接器接口**。
 
 ## 核心命令
 
@@ -196,10 +196,9 @@ lingtong-cli +connector-info --connector kmerp
 
 ### 工作原理
 
-`connector invoke` 通过自动创建和管理一个**通用工作流**（Start → Script → End）来调用任意连接器接口：
-- **单一工作流复用**：每个环境（test/prod）只创建一个工作流，所有调用共享
-- **参数外部化**：connector/method/authAccount/body 通过 Start 节点参数传入，工作流内不硬编码任何连接器
-- **自动缓存**：首次调用自动创建工作流并缓存，后续调用直接复用
+`connector invoke` 通过 `/gw/ai/proxy` 转发 `POST /gw/connector/invoke`，由代理调用控制器 `/connector/invoke`（对应外部接口 `/ltapp/connector/invoke`）。不创建、发布或执行工作流，也不读写调用缓存。
+
+参数映射：`--auth-account` → `authName`，`--body` → `requestBody`；`connector`、`method`、`env` 原样传递。环境默认 `prod`，请求体默认 `{}`，必须是非 null 的 JSON 对象。内置连接器（如 `ltTable`）可省略账户，服务端校验授权。
 
 ### 调用连接器方法
 
@@ -207,10 +206,9 @@ lingtong-cli +connector-info --connector kmerp
 lingtong-cli connector invoke \
   --connector <connector_name> \
   --method <method_name> \
-  --auth-account <account_name> \
+  [--auth-account <account_name>] \
   [--env test|prod] \
-  [--body '<json>'] \
-  [--force]
+  [--body '<json>']
 ```
 
 **示例**:
@@ -229,37 +227,23 @@ lingtong-cli connector invoke \
   --method "erp.trade.list.query" \
   --auth-account "广州力人服饰" \
   --env test \
-  --body '{"pageSize":10,"pageNo":1}'
-
-# 强制重建通用工作流（忽略缓存）
-lingtong-cli connector invoke \
-  --connector kmerp \
-  --method "erp.warehouse.list.query" \
-  --auth-account "广州力人服饰" \
-  --env test --force
+  --body '{"pageSize":100,"pageNo":1}'
 ```
 
 **返回示例**:
 ```json
 {
+  "success": true,
   "result": {
-    "body": "{...}",
-    "list": [...],
     "receiptStatus": "SUCCESS",
-    "success": true,
-    "total": 12
-  },
-  "_metadata": {
-    "workflowId": 1010,
-    "appTag": "b2nUqsNASykMgi",
-    "connector": "kmerp",
-    "method": "erp.warehouse.list.query",
-    "authAccount": "广州力人服饰",
-    "env": "test",
-    "universal": true
+    "responseBody": {"list": [], "total": 0, "success": true}
   }
 }
 ```
+
+完整保留接口响应。外层 `success` 不代表连接器业务成功，需检查 `result.receiptStatus` 和 `result.responseBody` 中的业务状态；业务数据从 `result.responseBody` 读取，可为对象或数组。CLI 不自动重试，执行结果未知时先核实再操作。
+
+`--body` 传业务参数（如 `{"pageNo":1}`），无需手动包裹 `requestBody`。CLI 会构造接口请求的 `requestBody` 字段。
 
 ### 列出可用方法
 
@@ -362,18 +346,20 @@ lingtong-cli connector schema \
 - 根据 `requestFieldList` 构造正确的 `--body` JSON
 - 根据 `responseFieldList` 了解返回数据的结构
 
-### 缓存管理
+### 旧缓存兼容
 
 ```bash
-# 查看缓存的通用工作流
+# 查看旧本地工作流缓存
 lingtong-cli connector cache list
 
-# 清除所有缓存
+# 清除所有旧本地缓存
 lingtong-cli connector cache clear
 
-# 清除特定环境的缓存
+# 清除特定环境的旧缓存
 lingtong-cli connector cache clear --key "test"
 ```
+
+`--force` 保留为弃用的空操作，仅向 stderr 提示。缓存命令仅管理旧本地记录，不影响新调用，也不删除平台上的历史工作流。
 
 ## 最佳实践
 
@@ -381,9 +367,8 @@ lingtong-cli connector cache clear --key "test"
 2. **使用 `connector methods`** 查看可用的方法名和 modelId
 3. **使用 `connector schema`** 获取接口的请求参数定义，构造正确的 `--body`
 4. **使用 `connector account list`** 确认账户名称正确
-5. **首次调用用 `--force`** 确保工作流正常创建
-6. **相同环境复用同一工作流**，无需为每个接口单独创建
-7. **定期检查授权状态**，特别是在执行工作流前
+5. **检查返回状态**，从 `result.responseBody` 读取业务数据
+6. **定期检查授权状态**
 
 ## 完整调用流程示例
 

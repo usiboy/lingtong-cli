@@ -29,7 +29,7 @@ metadata:
 ## 使用边界
 
 - 工作流 DSL 编辑使用 `lingtong-cli workflow` 命令
-- 通用连接器调用使用 `lingtong-cli connector invoke`，不直接编辑工作流
+- 单独调用连接器使用 `lingtong-cli connector invoke`，通过通用代理调用接口，无需创建工作流
 - 节点配置以 references/node-details.md 为准
 - DSL 格式以 references/dsl-specification.md 为准
 - 脚本编写以 references/script-guide.md 为准
