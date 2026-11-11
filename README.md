@@ -101,6 +101,12 @@ lingtong-cli skills status
 
 Skills 已通过 `go:embed` 内置到二进制中，无需源码树，也无需 `npx`。
 
+### 自动发布
+
+PR 合并到 `main` 后，GitHub Actions 自动递增 patch 版本，完成测试、六个平台的
+GitHub Release 构建和 npm 安装验证，再发布 `@lingtong-cli/cli`。无需手动改版本或打标签。
+触发条件、令牌轮换与失败重试见 [npm 自动发布说明](doc/NPM_RELEASE.md)。
+
 ## 输出与全局约定
 
 ### 输出格式
