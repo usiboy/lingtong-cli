@@ -47,7 +47,7 @@ test("releaseBase defaults to the public usiboy GitHub repository", () => {
   delete process.env.LINGTONG_CLI_DOWNLOAD_BASE;
   assert.equal(
     installer.releaseBase(),
-    "https://github.com/usiboy/lingtong-cli/releases/download/v0.1.0",
+    `https://github.com/usiboy/lingtong-cli/releases/download/v${require("../package.json").version}`,
   );
   if (original === undefined) {
     delete process.env.LINGTONG_CLI_DOWNLOAD_BASE;

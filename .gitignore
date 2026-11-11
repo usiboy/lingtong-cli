@@ -6,6 +6,8 @@ lingtong-cli
 # npm release artifacts
 checksums.txt
 *.tgz
+.npm_key
+.npmrc
 
 # IDE
 .idea/
