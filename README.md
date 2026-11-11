@@ -217,11 +217,11 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `connector check-auth` | 检查工作流/场景/连接器授权 | `lingtong-cli connector check-auth --workflow-id 947` |
 | `connector methods` | 列出可调用方法 | `lingtong-cli connector methods --connector kmerp --app-id 165 --auth-account-id 296` |
 | `connector schema` | 查询方法请求/响应字段 | `lingtong-cli connector schema --connector kmerp --method erp.warehouse.list.query --auth-account-id 296` |
-| `connector invoke` | 通过通用工作流调用连接器方法 | `lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.query --auth-account 广州力人服饰 --env test --body '{}'` |
-| `connector cache list` | 查看 invoke 缓存工作流 | `lingtong-cli connector cache list` |
-| `connector cache clear` | 清理 invoke 缓存 | `lingtong-cli connector cache clear --key test` |
+| `connector invoke` | 通过通用代理调用连接器方法 | `lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.query --auth-account 广州力人服饰 --env test --body '{}'` |
+| `connector cache list` | 查看旧 invoke 本地缓存 | `lingtong-cli connector cache list` |
+| `connector cache clear` | 清理旧 invoke 本地缓存 | `lingtong-cli connector cache clear --key test` |
 
-`connector invoke` 会按环境创建或复用一个由 CLI 管理的通用工作流，并将 `connector`、`method`、`authAccount`、`body` 作为运行参数传入。若平台中的自动工作流被手动修改，可使用 `--force` 重建。
+`connector invoke` 通过通用代理转发到连接器调用接口（代理路径 `/gw/connector/invoke`，对应外部接口 `/ltapp/connector/invoke`），不创建或执行工作流。`--auth-account` 对应 `authName`，`--body` 对应 `requestBody`（默认 `{}`），内置连接器可省略账户。响应保留 `result.receiptStatus` 和 `result.responseBody`，外层成功不代表业务成功。`--force` 仅保留为弃用的空操作；缓存命令仅管理旧本地记录，不删除平台工作流。
 
 ### 连接器工厂
 

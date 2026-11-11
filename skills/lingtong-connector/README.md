@@ -40,20 +40,18 @@ lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.quer
 | 列出方法 | `lingtong-cli connector methods --connector <name> --app-id <id> --auth-account-id <id>` |
 | 查询字段 Schema | `lingtong-cli connector schema --connector <name> --method <method> --auth-account-id <id>` |
 | 调用方法 | `lingtong-cli connector invoke --connector <name> --method <method> --auth-account <account-name> --body '<json>'` |
-| 查看调用缓存 | `lingtong-cli connector cache list` |
-| 清理调用缓存 | `lingtong-cli connector cache clear [--key <env>]` |
+| 查看旧本地缓存 | `lingtong-cli connector cache list` |
+| 清理旧本地缓存 | `lingtong-cli connector cache clear [--key <env>]` |
 
 ## 通用 invoke 机制
 
-`connector invoke` 会自动创建或复用一个 CLI 管理的通用工作流：
+`connector invoke` 使用通用代理调用 `/ltapp/connector/invoke` 对应的控制器，无需创建工作流。代理请求路径为 `/gw/connector/invoke`。
 
-1. 按 `env` 查找缓存。
-2. 缓存不存在时创建 Start -> Script -> End 工作流。
-3. Script 节点使用 `AppInvoker.invoke(context, method, authAccount, body)`。
-4. 发布并开启 Open API。
-5. 以后同一环境复用缓存工作流。
+`--auth-account` 映射为 `authName`，内置连接器可省略；`--body` 映射为 `requestBody`，默认 `{}`，传业务参数即可。环境默认 `prod`。
 
-如果平台上的通用工作流被手动修改，使用 `--force` 清理并重建。
+完整保留接口响应：检查 `result.receiptStatus`，从 `result.responseBody` 读取业务数据。外层成功不代表业务成功。
+
+`--force` 保留为弃用的空操作。`connector cache list/clear` 仅用于旧本地缓存，不删除平台工作流，新调用不使用缓存。
 
 ## 常见排错
 
@@ -62,7 +60,7 @@ lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.quer
 | `method not found` | 先运行 `connector methods` 确认 method 名称 |
 | 账号不可用 | 运行 `connector account verify` |
 | 返回字段不了解 | 运行 `connector schema` 或 `model interface list` |
-| invoke 结果异常 | `connector cache clear --key <env>` 后加 `--force` 重试 |
+| invoke 结果异常 | 检查 `result.receiptStatus` 和 `result.responseBody`；结果未知时先核实 |
 | 权限错误 | `auth status` 检查 Token，必要时切换 `--profile` 或 `--auth` |
 
 ## 相关技能
@@ -70,7 +68,7 @@ lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.quer
 | 技能 | 说明 |
 |------|------|
 | `lingtong-model` | 深入查询模型元数据 |
-| `lingtong-workflow` | 通用工作流与 AppInvoker DSL |
+| `lingtong-workflow` | 工作流编排与 AppInvoker DSL |
 | `lingtong-factory` | 自定义连接器工厂 |
 | `lingtong-script` | AppInvoker 脚本模式 |
 
