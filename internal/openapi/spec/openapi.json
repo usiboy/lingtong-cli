@@ -56612,9 +56612,12 @@
           "type": "integer",
           "format": "int32"
         },
-        "viewId": {
-          "type": "string",
-          "description": "可选的已有视图 ID"
+        "filters": {
+          "type": "array",
+          "description": "由调用方提供的筛选条件",
+          "items": {
+            "$ref": "#/definitions/FilterCondition"
+          }
         },
         "config": {
           "$ref": "#/definitions/PivotTableConfigDtoReq"
