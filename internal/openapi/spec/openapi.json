@@ -21722,6 +21722,41 @@
             "type": "string"
           },
           {
+            "name": "filterCondition[0].columnId",
+            "in": "query",
+            "description": "筛选字段的 Schema 列 ID，多个条件使用连续下标。",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "filterCondition[0].comparator",
+            "in": "query",
+            "description": "筛选运算符，小写：eq、ne、neq、gt、gte、lt、lte、between、ct、nct、in、empty、notempty。",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "filterCondition[0].value",
+            "in": "query",
+            "description": "筛选值；empty 和 notempty 可省略。",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "sortingCondition[0].columnId",
+            "in": "query",
+            "description": "排序字段的 Schema 列 ID，多个排序使用连续下标。",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "sortingCondition[0].asc",
+            "in": "query",
+            "description": "排序方向：true 升序，false 或未传降序。",
+            "required": false,
+            "type": "boolean"
+          },
+          {
             "name": "id",
             "in": "query",
             "description": "主键ID",
@@ -21758,7 +21793,7 @@
             "name": "pageNum",
             "in": "query",
             "description": "页码",
-            "required": true,
+            "required": false,
             "type": "integer",
             "minimum": 1,
             "exclusiveMinimum": false,
@@ -21768,7 +21803,7 @@
             "name": "pageSize",
             "in": "query",
             "description": "每页显示条数",
-            "required": true,
+            "required": false,
             "type": "integer",
             "minimum": 1,
             "exclusiveMinimum": false,
@@ -21930,6 +21965,15 @@
           }
         },
         "x-order": "2147483647"
+      },
+      "post": {
+        "tags": ["绫通表格数据接口"],
+        "summary": "增量列表查询（支持 JSON 筛选和排序）",
+        "operationId": "listIncrementalPostUsingPOST",
+        "consumes": ["application/json"],
+        "produces": ["*/*"],
+        "parameters": [{"in": "body", "name": "request", "description": "同步条件、分页、筛选和排序", "required": true, "schema": {"$ref": "#/definitions/BasicDataIncrementalQueryRequest"}}],
+        "responses": {"200": {"description": "OK", "schema": {"$ref": "#/definitions/Result"}}}
       }
     },
     "/basicdata/record/listNew": {
@@ -56568,6 +56612,62 @@
     }
   },
   "definitions": {
+    "BasicDataIncrementalQueryRequest": {
+      "type": "object",
+      "description": "增量记录查询请求；租户及用户由登录态设置。",
+      "properties": {
+        "schemaId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "表结构 ID"
+        },
+        "basicDataId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "基础资料表 ID"
+        },
+        "lastSyncTime": {
+          "type": "integer",
+          "format": "int64",
+          "description": "上次同步时间，毫秒；省略时查询全量"
+        },
+        "pageNum": {
+          "type": "integer",
+          "description": "全量查询页码，默认 1"
+        },
+        "pageSize": {
+          "type": "integer",
+          "description": "全量查询每页数量，默认 20"
+        },
+        "viewId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "可选视图 ID"
+        },
+        "column": {
+          "type": "string",
+          "description": "传统排序字段"
+        },
+        "asc": {
+          "type": "boolean",
+          "description": "传统排序方向"
+        },
+        "filterCondition": {
+          "type": "array",
+          "description": "筛选条件",
+          "items": {
+            "$ref": "#/definitions/FilterCondition"
+          }
+        },
+        "sortingCondition": {
+          "type": "array",
+          "description": "排序条件",
+          "items": {
+            "$ref": "#/definitions/SortingCondition"
+          }
+        }
+      }
+    },
     "LtDashboardDirectQueryRequest": {
       "type": "object",
       "required": [

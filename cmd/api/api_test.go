@@ -1501,3 +1501,73 @@ func TestParseParamsEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestIncrementalListIndexedQueryParams 验证增量查询的索引筛选和排序参数透传到代理 URL。
+func TestIncrementalListIndexedQueryParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("解析代理请求失败: %v", err)
+		}
+		if body["path"] != "/basicdata/record/listIncremental" || body["method"] != "GET" {
+			t.Errorf("代理路由错误: %v", body)
+		}
+		want := map[string]string{
+			"schemaId": "100", "basicDataId": "2966", "lastSyncTime": "1720000000000", "viewId": "1717124301125189632",
+			"filterCondition[0].columnId": "10", "filterCondition[0].comparator": "eq",
+			"filterCondition[0].value": "李莹", "sortingCondition[0].columnId": "36",
+			"sortingCondition[0].asc": "false",
+		}
+		for key, value := range want {
+			if got := r.URL.Query().Get(key); got != value {
+				t.Errorf("查询参数 %s = %q，期望 %q", key, got, value)
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"result":{"syncType":"INCREMENTAL","rows":[]}}`))
+	}))
+	defer server.Close()
+	f := &cmdutil.Factory{
+		Config:    &config.Config{Host: server.URL, Token: "test-token"},
+		IOStreams: &output.IOStreams{In: os.Stdin, Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}},
+	}
+	cmd := NewCmdApi(f)
+	cmd.SetArgs([]string{"GET", "/basicdata/record/listIncremental", "--params", `{"schemaId":100,"basicDataId":2966,"lastSyncTime":1720000000000,"viewId":1717124301125189632,"filterCondition[0].columnId":"10","filterCondition[0].comparator":"eq","filterCondition[0].value":"李莹","sortingCondition[0].columnId":"36","sortingCondition[0].asc":false}`})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("增量查询命令执行失败: %v", err)
+	}
+}
+
+// TestIncrementalListPostPreservesJSONNumbers 验证 POST 查询的数组和大整数原样转发。
+func TestIncrementalListPostPreservesJSONNumbers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		decoder.UseNumber()
+		var proxy map[string]interface{}
+		if err := decoder.Decode(&proxy); err != nil {
+			t.Fatalf("解析代理请求失败: %v", err)
+		}
+		if proxy["path"] != "/basicdata/record/listIncremental" || proxy["method"] != "POST" {
+			t.Errorf("代理路由错误: %v", proxy)
+		}
+		body := proxy["body"].(map[string]interface{})
+		if body["viewId"].(json.Number).String() != "1717124301125189632" {
+			t.Errorf("视图 ID 精度丢失: %v", body["viewId"])
+		}
+		filters := body["filterCondition"].([]interface{})
+		if filters[0].(map[string]interface{})["value"] != "李莹" {
+			t.Errorf("筛选条件错误: %v", filters)
+		}
+		if body["sortingCondition"].([]interface{})[0].(map[string]interface{})["asc"] != false {
+			t.Errorf("排序条件错误: %v", body["sortingCondition"])
+		}
+		_, _ = w.Write([]byte(`{"success":true,"result":{"syncType":"INCREMENTAL","rows":[]}}`))
+	}))
+	defer server.Close()
+	f := &cmdutil.Factory{Config: &config.Config{Host: server.URL}, IOStreams: &output.IOStreams{In: os.Stdin, Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}}
+	cmd := NewCmdApi(f)
+	cmd.SetArgs([]string{"POST", "/basicdata/record/listIncremental", "--data", `{"viewId":1717124301125189632,"filterCondition":[{"columnId":"10","comparator":"eq","value":"李莹"}],"sortingCondition":[{"columnId":"36","asc":false}]}`})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("增量查询命令执行失败: %v", err)
+	}
+}

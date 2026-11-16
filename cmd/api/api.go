@@ -74,8 +74,13 @@ func parseData(dataStr string) interface{} {
 	if dataStr == "" {
 		return nil
 	}
+	if !json.Valid([]byte(dataStr)) {
+		return dataStr
+	}
 	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(dataStr))
+	decoder.UseNumber()
+	if err := decoder.Decode(&data); err != nil {
 		return dataStr
 	}
 	return data
@@ -85,8 +90,13 @@ func parseParams(paramsStr string) map[string]interface{} {
 	if paramsStr == "" {
 		return nil
 	}
+	if !json.Valid([]byte(paramsStr)) {
+		return nil
+	}
 	var params map[string]interface{}
-	if err := json.Unmarshal([]byte(paramsStr), &params); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(paramsStr))
+	decoder.UseNumber()
+	if err := decoder.Decode(&params); err != nil {
 		return nil
 	}
 	return params
