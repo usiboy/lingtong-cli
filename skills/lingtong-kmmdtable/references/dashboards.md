@@ -1,6 +1,6 @@
 # 仪表盘流程
 
-仪表盘是当前应用下的 `dashboard` 资源，以 `id` 定位。接口和配置 DTO 统一维护在 CLI 共享规范，通过 [接口索引](api-catalog.md) 查询；没有额外复制的仪表盘接口结构。
+仪表盘是当前应用下的 `dashboard` 资源，以 `id` 定位。接口和配置 DTO 统一维护在 CLI 共享规范，通过 [接口索引](api-catalog.md) 查询；临时查询的字段含义见 [直接查询参数](direct-query.md)。
 
 ## 新建与查看
 
@@ -23,6 +23,8 @@ lingtong-cli api POST /dashboard/query --data '{"id":12}' --envelope
 重命名只提交 `{id,appId,name}`。编辑仪表盘需要仪表盘编辑权限；修改底层表格透视配置同时遵循表格编辑权限。保存后重新读取详情或查询数据确认结果。
 
 ## 不保存配置直接查询
+
+请求的所有后端字段、切片器、指标卡、图表及透视表配置详见 [直接查询参数](direct-query.md)。
 
 使用 `POST /dashboard/query/direct`，请求包含 `appId`、与保存接口相同的 `config`，以及可选的 `slicers`（格式与 `/dashboard/query` 相同）。租户从登录用户获取；接口不会创建仪表盘或关联视图，响应与仪表盘查询一致。请根据数据源的实际字段和组件类型组装配置：
 
