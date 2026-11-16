@@ -27,7 +27,7 @@ lingtong-cli api POST /dashboard/query --data '{"id":12}' --envelope
 使用 `POST /dashboard/query/direct`，请求包含 `appId`、与保存接口相同的 `config`，以及可选的 `slicers`（格式与 `/dashboard/query` 相同）。租户从登录用户获取；接口不会创建仪表盘或关联视图，响应与仪表盘查询一致。请根据数据源的实际字段和组件类型组装配置：
 
 ```bash
-lingtong-cli api POST /dashboard/query/direct --data '{"appId":942,"config":{"globalFilterList":[],"layoutList":[],"tableConfigList":[]},"slicers":[]}' --envelope
+lingtong-cli api POST /dashboard/query/direct --data '{"appId":942,"config":{"globalFilterList":[],"tableConfigList":[{"id":"chart1","title":"订单数","type":"chart","displayType":"barCharts","tableId":1568,"dataConfig":{"dimensions":[],"measures":[{"id":"m1","type":"count","disabled":false}]}}]}}' --envelope
 ```
 
-示例的组件列表为空，响应也为空；实际查询需要填入组件配置。与现有仪表盘查询一样，基础表格和透视表视图组件不由此接口直接返回行数据；需要通过相应表格接口查询，透视表可使用 [临时配置查询](../../lingtong-pivot-table/SKILL.md)。单个图表失败时现有查询流程会跳过该图表，请检查响应及服务日志。
+示例查询表格 1568 的记录数；请将 `appId` 和 `tableId` 替换为实际值。字段类型配置由服务端生成，无需提交或保存。与现有仪表盘查询一样，基础表格和透视表视图组件不由此接口直接返回行数据；需要通过相应表格接口查询，透视表可使用 [临时配置查询](../../lingtong-pivot-table/SKILL.md)。单个图表失败时现有查询流程会跳过该图表，请检查响应及服务日志。
