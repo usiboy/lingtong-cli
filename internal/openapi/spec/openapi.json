@@ -396,6 +396,72 @@
     }
   ],
   "paths": {
+    "/dashboard/query/direct": {
+      "post": {
+        "tags": [
+          "看板配置"
+        ],
+        "summary": "dashboardQueryDirect",
+        "operationId": "dashboardQueryDirectUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LtDashboardDirectQueryRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/Result"
+            }
+          }
+        }
+      }
+    },
+    "/api/pivot-table/query/direct": {
+      "post": {
+        "tags": [
+          "lt-datax-controller"
+        ],
+        "summary": "queryDirect",
+        "operationId": "queryDirectUsingPOST",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "*/*"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PivotTableDirectQueryRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/Result«PivotTableQueryResponse»"
+            }
+          }
+        }
+      }
+    },
     "/account/analyzeFeiShuAppToken": {
       "get": {
         "tags": [
@@ -56502,6 +56568,59 @@
     }
   },
   "definitions": {
+    "LtDashboardDirectQueryRequest": {
+      "type": "object",
+      "required": [
+        "appId",
+        "config"
+      ],
+      "properties": {
+        "appId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "config": {
+          "$ref": "#/definitions/LtDashboardConfig"
+        },
+        "slicers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slicerId": {
+                "type": "string"
+              },
+              "value": {}
+            }
+          }
+        }
+      }
+    },
+    "PivotTableDirectQueryRequest": {
+      "type": "object",
+      "required": [
+        "businessId",
+        "businessType",
+        "config"
+      ],
+      "properties": {
+        "businessId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "businessType": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "viewId": {
+          "type": "string",
+          "description": "可选的已有视图 ID"
+        },
+        "config": {
+          "$ref": "#/definitions/PivotTableConfigDtoReq"
+        }
+      }
+    },
     "AdvancedConfigVOReq": {
       "type": "object",
       "required": [

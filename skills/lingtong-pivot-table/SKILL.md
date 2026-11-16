@@ -58,6 +58,16 @@ lingtong-cli table pivot query --table-id <id> --view-id <id>
 }
 ```
 
+### 不保存配置直接查询
+
+无需创建透视表视图或先保存配置，通过通用 API 命令提交临时配置：
+
+```bash
+lingtong-cli api POST /api/pivot-table/query/direct --data '{"businessId":1568,"businessType":2,"config":{"dimensions":[{"id":"dim1","field":"data1568.1","alias":"单据类型","type":"term","disabled":false}],"measures":[{"id":"m1","type":"count","disabled":false}],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"},"other":{"maxRowsPerPage":50,"showSummary":false}}}' --envelope
+```
+
+`businessId`、`businessType` 对应保存配置接口的同名字段；`config` 的结构与保存配置一致，必须包含 `measures`、`advanced`、`other.showSummary`。字段和业务 ID 须替换为实际数据源。可选传入已有数字视图 ID 的字符串 `viewId`，查询会应用该视图已有的筛选条件；省略时不读取视图筛选。响应与 `/api/pivot-table/query` 一致，配置不会持久化。
+
 ### 获取透视表配置
 
 ```bash
