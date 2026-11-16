@@ -60,7 +60,7 @@ lingtong-cli table pivot query --table-id <id> --view-id <id>
 
 ### 不保存配置直接查询
 
-完整请求字段、字段取值、筛选条件和示例见 [直接查询参数](../lingtong-kmmdtable/references/direct-query.md)。
+完整请求字段、字段取值、筛选条件和线上配置转换示例见 [直接查询参数](../lingtong-kmmdtable/references/direct-query.md#将线上透视配置改为临时查询)。
 
 无需创建透视表视图或先保存配置，通过通用 API 命令提交临时配置：
 

@@ -119,6 +119,58 @@
 
 `config.id`、`tenantId`、`viewId`、`tableId`、`businessId`、`businessType`、配置名称和创建更新信息不用于确定本次数据源；实际业务 ID、类型和租户使用外层参数及登录态。请求中的 `config.viewId` 不触发视图筛选读取。
 
+### 将线上透视配置改为临时查询
+
+`/api/pivot-table/config` 的响应外层 `success`、`msg`、`code`、`businessCode`、`clueId` 是响应信封，不是查询参数。取其 `result` 中的 `businessId`、`businessType` 放到新请求外层，取 `result.dimensions`、`result.measures`、`result.advanced` 和 `result.other` 放到外层 `config` 中。直接查询不会使用 `result.viewId` 从数据库补充筛选；原视图筛选不属于这份响应，如需筛选需由调用方明确传入 `filters`。
+
+对于示例中的 `result.id`、`tenantId`、`viewId`、`tableId`、`configName`、`configDesc`、创建更新时间和人员，以及 `esFieldTypeConfig`，此查询不需要传。`enabled` 是返回的派生状态，不是配置开关；使用 `disabled`，建议去掉 `enabled`。`expand`、`styleConfig`、`dashboardAlign`、`splitModel`、空值字段也可省略。保留维度 ID、度量 ID 以及排序和汇总对它们的引用。
+
+以下是以上线返回配置为基础的等效查询请求，省略了这些非查询字段。保存为 `pivot-query.json` 后运行 `lingtong-cli api POST /api/pivot-table/query/direct --data "$(cat pivot-query.json)" --envelope`；实际使用时应确认当前登录租户中的数据源和字段可用。
+
+```json
+{
+  "businessId": 2966,
+  "businessType": 2,
+  "config": {
+    "dimensions": [{
+      "id": "pd_group",
+      "disabled": false,
+      "field": "zhiku_group",
+      "alias": "运营小组",
+      "type": "term",
+      "config": {
+        "sortByMeasureId": "pm_sales",
+        "sortOrder": "desc",
+        "sortCount": 20,
+        "groupOther": false,
+        "extendedBounds": false
+      }
+    }],
+    "measures": [
+      {"id": "pm_sales", "disabled": false, "field": "sales_amount", "alias": "销售金额（元）", "type": "sum"},
+      {"id": "pm_items", "disabled": false, "field": "sales_items", "alias": "销售件数", "type": "sum"},
+      {"id": "pm_profit", "disabled": false, "field": "gross_profit", "alias": "商品毛利（元）", "type": "sum"}
+    ],
+    "advanced": {
+      "openDimensionSplit": false,
+      "openStatistic": false,
+      "displayMode": "normal",
+      "totalMeasures": []
+    },
+    "other": {
+      "showSummary": true,
+      "otherExtractConfigVOList": [
+        {"id": "pm_sales", "type": "measure", "summaryType": "sum", "disabled": false},
+        {"id": "pm_items", "type": "measure", "summaryType": "sum", "disabled": false},
+        {"id": "pm_profit", "type": "measure", "summaryType": "sum", "disabled": false}
+      ]
+    }
+  }
+}
+```
+
+要复现特定筛选结果，在请求顶层补充例如 `"filters":[{"columnId":"zhiku_group","comparator":"EQ","value":"李莹"}]`。此示例没有设置筛选，不能保证与携带视图筛选或仪表盘切片器的查询结果一致。线上配置中的 `maxRowsPerPage: 50` 目前不会被这个接口的查询转换使用，示例因此省略。
+
 ## 维度与度量
 
 仪表盘普通图表的 `dataConfig.dimensions/measures` 和透视表的 `config.dimensions/measures` 共用以下结构。字段名推荐使用表 Schema 的字段 key，例如线上配置的 `zhiku_group`、`listing_time`、`sales_amount`；按实际 Schema 核对。底层可将字段 key 映射为 ES 字段名，不能假定所有字段都必须手写 `data{tableId}.{fieldId}`。
