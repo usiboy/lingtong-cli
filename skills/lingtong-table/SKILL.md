@@ -852,7 +852,7 @@ lingtong-cli table create --app-id 165 --name "订单表" --source 1 --type 1 --
 
 ## 扩展操作
 
-筛选配置、Excel 导入导出、字典与连接器同步见 [表格扩展操作](references/advanced.md)。
+增量列表的筛选与排序、筛选配置、Excel 导入导出、字典与连接器同步见 [表格扩展操作](references/advanced.md)。
 
 ## 相关技能
 

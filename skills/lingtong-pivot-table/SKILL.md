@@ -19,7 +19,7 @@ related_skills:
 lingtong-cli config init --host https://your-lingtong-host.com
 ```
 
-2. 已创建透视表视图（type=pivot）：
+2. 如需查询或管理已保存的透视表配置，先创建透视表视图（type=pivot）；临时配置查询不需要此步骤：
 ```bash
 lingtong-cli table view save --schema-id <id> --name "透视表名称" --type pivot
 ```
@@ -58,6 +58,18 @@ lingtong-cli table pivot query --table-id <id> --view-id <id>
 }
 ```
 
+### 不保存配置直接查询
+
+完整请求字段、字段取值、筛选条件和线上配置转换示例见 [直接查询参数](../lingtong-kmmdtable/references/direct-query.md#将线上透视配置改为临时查询)。
+
+无需创建透视表视图或先保存配置，通过通用 API 命令提交临时配置：
+
+```bash
+lingtong-cli api POST /api/pivot-table/query/direct --data '{"businessId":1568,"businessType":2,"config":{"dimensions":[{"id":"dim1","field":"data1568.1","alias":"单据类型","type":"term","disabled":false}],"measures":[{"id":"m1","type":"count","disabled":false}],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"},"other":{"maxRowsPerPage":50,"showSummary":false}}}' --envelope
+```
+
+`businessId`、`businessType` 对应保存配置接口的同名字段；`config` 的结构与保存配置一致，必须包含 `measures`、`advanced`、`other.showSummary`。字段和业务 ID 须替换为实际数据源。可选通过 `filters` 直接传入筛选条件，格式与视图筛选一致，例如 `"filters":[{"columnId":"1","comparator":"EQ","value":"已完成"}]`；省略时不应用筛选。接口不会读取已保存的视图筛选配置，即使 `config` 中含有 `viewId` 也不会读取。响应与 `/api/pivot-table/query` 一致，配置不会持久化。
+
 ### 获取透视表配置
 
 ```bash
@@ -75,7 +87,7 @@ lingtong-cli table pivot config-save --table-id <id> --view-id <id> \
 - `--table-id`: 表格 ID（必填）
 - `--view-id`: 视图 ID（必填）
 - `--business-id`: 业务 ID（必填，通常与 table-id 相同）
-- `--business-type`: 业务类型（默认 2，2=场景）
+- `--business-type`: 业务类型（默认 2，2=基础资料）
 - `--config`: 配置 JSON（必填）
 
 ## 配置结构详解
@@ -135,7 +147,7 @@ lingtong-cli table pivot config-save --table-id <id> --view-id <id> \
 | 类型 | 说明 | 适用字段 | config 配置 |
 |------|------|----------|-------------|
 | `term` | 分组（按字段值分组） | text/keyword | sortCount, sortOrder, groupOther |
-| `date_histogram` | 日期分组 | date | interval, extendedBounds |
+| `date_histogram` | 日期分组 | date | miniInterval, extendedBounds |
 | `range` | 数值范围分组 | number | rangeValueList |
 | `date_range` | 日期范围分组 | date | dateList |
 
@@ -168,13 +180,13 @@ lingtong-cli table pivot config-save --table-id <id> --view-id <id> \
   "type": "date_histogram",
   "disabled": false,
   "config": {
-    "interval": "1M",
+    "miniInterval": "1M",
     "extendedBounds": false
   }
 }
 ```
 
-- `interval`: 时间间隔（1d=天，1w=周，1M=月，1y=年）
+- `miniInterval`: 时间间隔（1d=天，1w=周，1M=月，1y=年）
 - `extendedBounds`: 是否自动填充空桶
 
 **range 维度配置**：
@@ -277,7 +289,7 @@ lingtong-cli table pivot config-save --table-id <id> --view-id <id> \
 }
 ```
 
-- `summaryType`: 计算类型（count/sum/avg/max/min/unique）
+- `summaryType`: 计算类型（count/sum/avg/max/min/cardinality）
 
 ## 使用示例
 
@@ -302,7 +314,7 @@ lingtong-cli table pivot config-save --table-id 1568 --view-id 694 \
 ```bash
 lingtong-cli table pivot config-save --table-id 1568 --view-id 694 \
   --business-id 1568 --business-type 2 \
-  --config '{"dimensions":[{"id":"dim1","field":"data1568.22","alias":"操作时间","type":"date_histogram","disabled":false,"config":{"interval":"1M"}}],"measures":[{"id":"m1","type":"count","disabled":false}],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"},"other":{"maxRowsPerPage":50,"showSummary":true,"otherExtractConfigVOList":[{"id":"m1","type":"measure","summaryType":"count","disabled":false}]}}'
+  --config '{"dimensions":[{"id":"dim1","field":"data1568.22","alias":"操作时间","type":"date_histogram","disabled":false,"config":{"miniInterval":"1M"}}],"measures":[{"id":"m1","type":"count","disabled":false}],"advanced":{"openDimensionSplit":false,"openStatistic":true,"displayMode":"normal"},"other":{"maxRowsPerPage":50,"showSummary":true,"otherExtractConfigVOList":[{"id":"m1","type":"measure","summaryType":"count","disabled":false}]}}'
 ```
 
 ### 示例 4: 数值范围分组
@@ -323,11 +335,9 @@ lingtong-cli table pivot config-save --table-id 1568 --view-id 694 \
 
 ## 字段 ID 获取
 
-透视表配置中的 `field` 字段需要使用 ES 字段名格式：`data{tableId}.{fieldId}`
+透视表配置中的 `field` 优先使用表 Schema 中的字段 key，例如 `listing_time`；服务端根据 Schema 映射到对应 ES 字段。已知的 ES 字段名也可作为兼容输入，但不能假定所有字段都遵循同一种 ES 路径格式。
 
-例如：
-- 表格 ID 1568，字段 ID 1 → `data1568.1`
-- 表格 ID 1568，字段 ID 17 → `data1568.17`
+例如表格 ID 1568 的字段 key 为 `listing_time` 时，在配置中传 `"field":"listing_time"`。
 
 获取字段 ID 的方法：
 ```bash
