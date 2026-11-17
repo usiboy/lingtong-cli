@@ -5,6 +5,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
@@ -64,6 +65,22 @@ func (c *Client) DisableProxy() {
 
 // Do performs an HTTP request and returns the response.
 func (c *Client) Do(method, path string, params map[string]interface{}, body interface{}) ([]byte, error) {
+	return c.DoContext(context.Background(), method, path, params, body)
+}
+
+// DoContext allows long-running commands to cancel in-flight API requests.
+func (c *Client) DoContext(ctx context.Context, method, path string, params map[string]interface{}, body interface{}) ([]byte, error) {
+	return c.doContext(ctx, method, path, params, body, false)
+}
+
+// DoQueryContext sends request parameters on the outer proxy URL. The backend's
+// POST wrapper ignores proxy.params, but preserves the original URL parameters.
+// This supports Spring request-parameter endpoints without changing JSON calls.
+func (c *Client) DoQueryContext(ctx context.Context, method, path string, params map[string]interface{}) ([]byte, error) {
+	return c.doContext(ctx, method, path, params, nil, true)
+}
+
+func (c *Client) doContext(ctx context.Context, method, path string, params map[string]interface{}, body interface{}, queryOnURL bool) ([]byte, error) {
 	var url string
 	var reqBody io.Reader
 
@@ -75,7 +92,7 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 			"method": method,
 		}
 		if params != nil && len(params) > 0 {
-			if method == http.MethodGet {
+			if method == http.MethodGet || queryOnURL {
 				url = appendQueryParams(url, params)
 			} else {
 				proxyBody["params"] = params
@@ -105,7 +122,7 @@ func (c *Client) Do(method, path string, params map[string]interface{}, body int
 		}
 	}
 
-	req, err := http.NewRequest(method, url, reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

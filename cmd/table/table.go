@@ -32,6 +32,8 @@ func NewCmdTable(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdTableSchema(f))
 	cmd.AddCommand(newCmdTableView(f))
 	cmd.AddCommand(newCmdTablePivot(f))
+	cmd.AddCommand(newCmdTableImport(f, false, nil))
+	cmd.AddCommand(newCmdTableImportProgress(f))
 
 	cmd.PersistentFlags().String("format", "json", "Output format: json, table, pretty")
 	return cmd
@@ -408,6 +410,7 @@ func newCmdTableData(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdTableDataBatchUpdate(f))
 	cmd.AddCommand(newCmdTableDataDelete(f))
 	cmd.AddCommand(newCmdTableDataBatchDelete(f))
+	cmd.AddCommand(newCmdTableImport(f, true, nil))
 	return cmd
 }
 
