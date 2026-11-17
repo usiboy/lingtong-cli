@@ -1,7 +1,7 @@
 ---
 name: lingtong-table
-version: 2.12.0
-description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量创建、单条更新、批量更新、记录计数、删除（带确认）、Schema 与公式字段管理。当用户需要操作绫通表格、查询数据、创建记录、批量导入、更新记录、统计记录数、删除记录、理解表格结构、添加公式或计算列时触发。关键词：table、表格、table data、query、create record、batch-create、update、count、batch-update、delete、schema、公式、function。"
+version: 2.13.0
+description: "绫通表格管理：表格 CRUD、数据查询、记录创建、批量创建、单条更新、批量更新、记录计数、删除（带确认）、Schema 与公式字段管理、本地 Excel/CSV 导入与等待结果。当用户需要操作绫通表格、查询数据、创建记录、批量导入、更新记录、统计记录数、删除记录、理解表格结构、添加公式或计算列、导入 Excel/CSV 时触发。关键词：table、表格、table data、query、create record、batch-create、update、count、batch-update、delete、schema、公式、function。"
 ---
 
 # lingtong-table 技能
@@ -20,6 +20,31 @@ lingtong-cli config init --host https://your-lingtong-host.com
 ```
 
 ## 核心命令
+
+### 本地 Excel / CSV 导入
+
+```bash
+# 表格管理页“导入表格 → 导入 Excel”：解析表头、新建表格、导入并等待结果
+lingtong-cli table import --app-id 165 --file ./订单.xlsx --name "订单"
+
+# 导入已有表格，使用该表的导入模板列名
+lingtong-cli table data import --basic-data-id 1568 --file ./订单.xlsx
+
+# 仅本地校验并展示计划，不上传、不建表
+lingtong-cli table import --app-id 165 --file ./订单.csv --dry-run
+
+# 只提交任务，然后单独继续等待
+lingtong-cli table import --basic-data-id 1568 --file ./订单.xlsx --wait=false
+lingtong-cli table import-progress --uuid <uuid> --timeout 20m
+```
+
+- 支持 `.xlsx`、`.xls`、`.csv`，非空文件且不超过 50 MB。
+- `--app-id` 与 `--basic-data-id` 二选一；`--name` 只用于新表，默认取文件名（去扩展名）。
+- 默认等待实际完成；`--timeout` 默认 `10m`，包括上传、建表、提交和轮询；`--poll-interval` 默认 `2s`。
+- stdout 是最终 JSON（支持 `--envelope`、`--jq`）；进度和任务 UUID 输出至 stderr。只有 `result.completed=true` / `status=2` 表示已完成，`--wait=false` 的成功仅表示任务已提交。
+- 导入失败、超时、无权限和文件错误返回非零退出码。超时/中断不会取消服务端任务，使用 `table import-progress` 恢复等待，不重复提交。
+- 已有表格按后端主键规则新增或更新。新建表格后的部分失败保留表格，并报告 `basicDataId`；先检查字段和数据再决定重试。
+- 上传和参数转发已由专用命令处理，不要把本地路径传给 `fileUrl`，也不要用 JSON `service --body` 代替导入命令。
 
 ### 列出表格
 

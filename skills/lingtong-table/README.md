@@ -5,6 +5,7 @@
 ## 何时使用
 
 - 创建、查询或更新表格
+- 直接从本地 Excel/CSV 导入已有表格或新建表格，并等待结果
 - 查询、创建、批量创建、更新、批量更新、统计、删除表格记录
 - 查询或更新表格 Schema
 - 添加金额、日期差、条件判断等公式/计算列
@@ -35,6 +36,9 @@ lingtong-cli table data batch-create --basic-data-id 1568 --schema-id 2367 --rec
 |------|------|
 | 列出表格 | `lingtong-cli table list [--app-id <id>]` |
 | 创建表格 | `lingtong-cli table create --app-id <id> --name <name> --source 1 --type 1` |
+| 从 Excel/CSV 建表并导入 | `lingtong-cli table import --app-id <id> --file ./订单.xlsx [--name 订单]` |
+| 导入已有表格 | `lingtong-cli table data import --basic-data-id <id> --file ./订单.xlsx` |
+| 继续等待导入任务 | `lingtong-cli table import-progress --uuid <uuid> [--timeout 20m]` |
 | 带 Schema 创建 | `lingtong-cli table create --app-id <id> --name <name> --columns-schema '<json-array>'` |
 | 更新表格配置 | `lingtong-cli table update --id <id> --open-connector 1` |
 | 查询 Schema | `lingtong-cli table schema query --basic-data-id <id>` |

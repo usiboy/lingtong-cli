@@ -17,7 +17,7 @@
 | 连接器工厂 | 自定义连接器定义、HTTP 接口、脚本的查询、保存、运行、删除 |
 | 场景 | 场景列表、详情、草稿创建、更新、复制、开关、发布、版本、触发条件、字段映射调试 |
 | 工作流 | 创建、更新、删除、验证、测试、发布、回滚、执行、日志、Open API、模板、文档、依赖分析 |
-| 表格 | 表格 CRUD、Schema 与公式字段管理、数据查询/创建/批量创建/更新/批量更新/统计/删除、视图、分组、统计指标 |
+| 表格 | 表格 CRUD、Schema 与公式字段管理、本地 Excel/CSV 导入与等待结果、数据查询/创建/批量创建/更新/批量更新/统计/删除、视图、分组、统计指标 |
 | 透视表 | 透视表视图、配置读取/保存、维度/度量聚合查询 |
 | 模型元数据 | 接口模型、领域模型、动态模型视图 |
 | API 自省 | OpenAPI Schema 浏览、模块搜索、自动生成 `service` 命令、原始 `api` 调用 |
@@ -307,6 +307,9 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 |------|------|------|
 | `table list` | 列出表格 | `lingtong-cli table list --app-id 165` |
 | `table create` | 创建表格 | `lingtong-cli table create --app-id 165 --name 客户资料 --source 1 --type 1` |
+| `table import` | 从本地 Excel/CSV 新建表格并导入，默认等待完成 | `lingtong-cli table import --app-id 165 --file ./客户资料.xlsx --name 客户资料` |
+| `table data import` | 导入已有表格，默认等待完成 | `lingtong-cli table data import --basic-data-id 123 --file ./客户资料.xlsx` |
+| `table import-progress` | 查询或继续等待已有导入任务 | `lingtong-cli table import-progress --uuid <uuid>` |
 | `table update` | 更新表格配置 | `lingtong-cli table update --id 1568 --open-connector 1` |
 | `table schema query` | 查询 Schema | `lingtong-cli table schema query --basic-data-id 123` |
 | `table schema update` | 更新 Schema | `lingtong-cli table schema update --schema-id 2189 --basic-data-id 1553 --columns-schema '[{"id":1,"title":"Name","type":"text","key":"name","show":true}]'` |
@@ -320,6 +323,8 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `table data batch-delete` | 批量删除 | `lingtong-cli table data batch-delete --schema-id 2546 --ids 1,2,3 --yes` |
 
 `basicdata` 独立命令已废弃，常规基础资料/表格数据操作统一使用 `table data`。OpenAPI 中仍存在 `/basicdata/*` 模块，长尾接口可使用 `lingtong-cli service basicdata ...`。
+
+Excel 导入支持 `.xlsx`、`.xls`、`.csv`，文件不能超过 50 MB。`table import --basic-data-id <id>` 也可导入已有表格；已有表格应使用导入模板的列名，匹配主键的记录可能被更新。默认等待 10 分钟，可用 `--timeout 20m` 调整整个操作的时限，或 `--wait=false` 仅提交任务。进度输出到 stderr，stdout 保持 JSON。超时/中断不取消服务端任务，使用返回的 UUID 继续查询，避免重复导入。完整流程与故障处理见 [Excel 导入说明](doc/table-excel-import.md)。
 
 ### 表格视图与透视表
 
