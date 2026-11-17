@@ -8,10 +8,16 @@
 
 ## Excel 导入与导出
 
-1. 文件先上传到平台，取得 `fileUrl`，不能将本地路径当作 URL。宿主上传辅助接口为 `GET /storage/oss/getStsToken`，可带时间戳 `_t`；临时上传凭据仅用于上传。
-2. `POST /basicdata/record/import/columnsSchema` 用 query `fileUrl` 解析列。支持 POST query 的 `service` 命令可按 `--help` 调用；使用通用 `api` 时须把 URL 编码的 query 放入路径。
-3. `POST /basicdata/record/import` 用 multipart 表单提交 `basicDataId`、`fileUrl`；当前通用 `api` 和 `service --body` 不能替代表单上传能力。
-4. 返回任务 UUID 后通过 `/basicdata/record/getImportProgress` 查询，区分任务创建与实际完成。
+优先使用 `table import --app-id <id> --file <本地文件>` 新建表格并导入，或 `table data import --basic-data-id <id> --file <本地文件>` 导入已有表格；两者默认等待完成。支持 `.xlsx`、`.xls`、`.csv`，最大 50 MB。`--wait=false` 只提交，`table import-progress --uuid <uuid>` 继续等待。
+
+专用命令自动完成以下步骤：
+
+1. 通过代理 `GET /storage/oss/getStsToken` 获取临时凭据，将文件上传至前端使用的 `erp-tmp-zb` 桶、`report_temporary/` 前缀。平台 Token 不发送到 OSS，临时凭据不写入输出。
+2. 新表通过 `POST /basicdata/record/import/columnsSchema` 的请求参数 `fileUrl` 解析列，再保存表格及字段 Schema；已有表格直接复用已有字段。
+3. `POST /basicdata/record/import` 接收请求参数 `basicDataId`、`fileUrl`。前端用 multipart，但后端也接受 URL 参数，并未限定 multipart。CLI 将 URL 编码后的参数放在外层 `/gw/ai/proxy` URL 上，后端 POST 包装器会保留原始请求参数；JSON `body` 或 POST 的 `proxy.params` 都不能替代这个绑定方式。
+4. 返回任务 UUID 后通过 `/basicdata/record/getImportProgress` 查询；`result:null` 表示尚无进度，状态 `0` 校验、`1` 导入中、`2` 完成、`3` 失败。只有 `2` 才报告 `completed=true`。失败或超时返回非零退出码，并保留 UUID 便于恢复查询。
+
+默认 `--timeout 10m` 限制整个操作，`--poll-interval 2s` 控制轮询；超时/中断不会取消服务端任务。已有表格按主键规则新增或更新，新表部分失败保留已创建表格并报告 ID。先检查任务/表格，避免盲目重新提交。
 
 导入模板通过 `/basicdata/record/getImportTemplate` 获取。导出通过 `/basicdata/record/export` 发起，再由 `/download/center/queryList` 和 `/download/center/queryFileUrl` 查询任务及下载地址；导出任务已创建不等于文件已生成。
 

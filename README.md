@@ -17,7 +17,7 @@
 | 连接器工厂 | 自定义连接器定义、HTTP 接口、脚本的查询、保存、运行、删除 |
 | 场景 | 场景列表、详情、草稿创建、更新、复制、开关、发布、版本、触发条件、字段映射调试 |
 | 工作流 | 创建、更新、删除、验证、测试、发布、回滚、执行、日志、Open API、模板、文档、依赖分析 |
-| 表格 | 表格 CRUD、Schema 与公式字段管理、数据查询/创建/批量创建/更新/批量更新/统计/删除、视图、分组、统计指标 |
+| 表格 | 表格 CRUD、Schema 与公式字段管理、本地 Excel/CSV 导入与等待结果、数据查询/创建/批量创建/更新/批量更新/统计/删除、视图、分组、统计指标 |
 | 透视表 | 透视表视图、配置读取/保存、维度/度量聚合查询 |
 | 模型元数据 | 接口模型、领域模型、动态模型视图 |
 | API 自省 | OpenAPI Schema 浏览、模块搜索、自动生成 `service` 命令、原始 `api` 调用 |
@@ -100,6 +100,12 @@ lingtong-cli skills status
 ```
 
 Skills 已通过 `go:embed` 内置到二进制中，无需源码树，也无需 `npx`。
+
+### 自动发布
+
+PR 合并到 `main` 后，GitHub Actions 自动递增 patch 版本，完成测试、六个平台的
+GitHub Release 构建和 npm 安装验证，再发布 `@lingtong-cli/cli`。无需手动改版本或打标签。
+触发条件、令牌轮换与失败重试见 [npm 自动发布说明](doc/NPM_RELEASE.md)。
 
 ## 输出与全局约定
 
@@ -217,11 +223,11 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `connector check-auth` | 检查工作流/场景/连接器授权 | `lingtong-cli connector check-auth --workflow-id 947` |
 | `connector methods` | 列出可调用方法 | `lingtong-cli connector methods --connector kmerp --app-id 165 --auth-account-id 296` |
 | `connector schema` | 查询方法请求/响应字段 | `lingtong-cli connector schema --connector kmerp --method erp.warehouse.list.query --auth-account-id 296` |
-| `connector invoke` | 通过通用工作流调用连接器方法 | `lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.query --auth-account 广州力人服饰 --env test --body '{}'` |
-| `connector cache list` | 查看 invoke 缓存工作流 | `lingtong-cli connector cache list` |
-| `connector cache clear` | 清理 invoke 缓存 | `lingtong-cli connector cache clear --key test` |
+| `connector invoke` | 通过通用代理调用连接器方法 | `lingtong-cli connector invoke --connector kmerp --method erp.warehouse.list.query --auth-account 广州力人服饰 --env test --body '{}'` |
+| `connector cache list` | 查看旧 invoke 本地缓存 | `lingtong-cli connector cache list` |
+| `connector cache clear` | 清理旧 invoke 本地缓存 | `lingtong-cli connector cache clear --key test` |
 
-`connector invoke` 会按环境创建或复用一个由 CLI 管理的通用工作流，并将 `connector`、`method`、`authAccount`、`body` 作为运行参数传入。若平台中的自动工作流被手动修改，可使用 `--force` 重建。
+`connector invoke` 通过通用代理转发到连接器调用接口（代理路径 `/gw/connector/invoke`，对应外部接口 `/ltapp/connector/invoke`），不创建或执行工作流。`--auth-account` 对应 `authName`，`--body` 对应 `requestBody`（默认 `{}`），内置连接器可省略账户。响应保留 `result.receiptStatus` 和 `result.responseBody`，外层成功不代表业务成功。`--force` 仅保留为弃用的空操作；缓存命令仅管理旧本地记录，不删除平台工作流。
 
 ### 连接器工厂
 
@@ -301,6 +307,9 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 |------|------|------|
 | `table list` | 列出表格 | `lingtong-cli table list --app-id 165` |
 | `table create` | 创建表格 | `lingtong-cli table create --app-id 165 --name 客户资料 --source 1 --type 1` |
+| `table import` | 从本地 Excel/CSV 新建表格并导入，默认等待完成 | `lingtong-cli table import --app-id 165 --file ./客户资料.xlsx --name 客户资料` |
+| `table data import` | 导入已有表格，默认等待完成 | `lingtong-cli table data import --basic-data-id 123 --file ./客户资料.xlsx` |
+| `table import-progress` | 查询或继续等待已有导入任务 | `lingtong-cli table import-progress --uuid <uuid>` |
 | `table update` | 更新表格配置 | `lingtong-cli table update --id 1568 --open-connector 1` |
 | `table schema query` | 查询 Schema | `lingtong-cli table schema query --basic-data-id 123` |
 | `table schema update` | 更新 Schema | `lingtong-cli table schema update --schema-id 2189 --basic-data-id 1553 --columns-schema '[{"id":1,"title":"Name","type":"text","key":"name","show":true}]'` |
@@ -314,6 +323,8 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `table data batch-delete` | 批量删除 | `lingtong-cli table data batch-delete --schema-id 2546 --ids 1,2,3 --yes` |
 
 `basicdata` 独立命令已废弃，常规基础资料/表格数据操作统一使用 `table data`。OpenAPI 中仍存在 `/basicdata/*` 模块，长尾接口可使用 `lingtong-cli service basicdata ...`。
+
+Excel 导入支持 `.xlsx`、`.xls`、`.csv`，文件不能超过 50 MB。`table import --basic-data-id <id>` 也可导入已有表格；已有表格应使用导入模板的列名，匹配主键的记录可能被更新。默认等待 10 分钟，可用 `--timeout 20m` 调整整个操作的时限，或 `--wait=false` 仅提交任务。进度输出到 stderr，stdout 保持 JSON。超时/中断不取消服务端任务，使用返回的 UUID 继续查询，避免重复导入。完整流程与故障处理见 [Excel 导入说明](doc/table-excel-import.md)。
 
 ### 表格视图与透视表
 
@@ -364,7 +375,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 
 ## Agent Skills
 
-本版本构建后内置 13 个有效 Skills。可通过 `lingtong-cli skills list` 查看当前二进制的实时清单。
+本版本构建后内置 14 个有效 Skills。可通过 `lingtong-cli skills list` 查看当前二进制的实时清单。
 
 | Skill | 说明 |
 |-------|------|
@@ -377,6 +388,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | `lingtong-table` | 表格 CRUD、Schema、公式入口、记录 CRUD、视图、分组、统计 |
 | `lingtong-kmmdtable` | 快麦多维表格模块入口：资源与文件夹、仪表盘、自定义页面及权限；复用表格和透视表 Skill |
 | `lingtong-table-formula` | 公式字段、函数参考、完整 Schema 更新、ES Runtime Field/Painless 排查 |
+| `lingtong-dashboard` | 九类仪表盘组件、配置示例、数据绑定、筛选、布局和离线校验 |
 | `lingtong-pivot-table` | 透视表查询、配置、维度/度量聚合 |
 | `lingtong-model` | 接口模型、领域模型、动态模型视图 |
 | `lingtong-service` | OpenAPI 自动命令层，覆盖长尾 API |
@@ -385,6 +397,8 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 `skills/lingtong-basicdata/` 是历史遗留目录，不再作为有效 Skill 内置。基础资料操作已合并到 `lingtong-table`。
 
 公式能力通过现有 `table schema query/update` 配置。详细用法见 [公式技能](skills/lingtong-table-formula/SKILL.md)，源码核查记录见 [公式技能遗漏核查](doc/table-formula-skill-audit.md)。更新技能需先更新/重新构建 CLI，再执行 `skills install`；旧二进制不会动态读取源码目录。
+
+仪表盘技能包含九类组件最小示例、经营概览及高级配置示例；使用 Node.js 18+ 运行离线校验，不访问线上接口。维护检查：`make test-dashboard-skill`。完整用法见 [仪表盘技能](skills/lingtong-dashboard/SKILL.md)。
 
 ## 安装 Skills 到 AI 编辑器
 
@@ -397,7 +411,7 @@ Token 读取顺序以代码为准：`LINGTONG_TOKEN` 可覆盖运行时 Token，
 | Qoder | `~/.qoder/skills` / `.qoder/skills` | `AGENTS.md` |
 | Cursor | `~/.cursor/skills` / `.cursor/skills` | `AGENTS.md` |
 | Trae | `~/.trae/skills` / `.trae/skills` | `AGENTS.md` |
-| Codex | 无独立 Skills 目录 | `AGENTS.md`、`~/.codex/AGENTS.md` |
+| Codex | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`、`~/.codex/AGENTS.md` |
 
 安装行为：
 

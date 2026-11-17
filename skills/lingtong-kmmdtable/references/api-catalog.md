@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 表格、字段、记录、视图、分组 | [表格 Skill](../../lingtong-table/SKILL.md) | `lingtong-cli table --help`；`schema module basicdata`；`schema module tableView` |
 | 透视表 | [透视表 Skill](../../lingtong-pivot-table/SKILL.md) | `lingtong-cli table pivot --help` |
-| 仪表盘 | [业务流程](dashboards.md) | `lingtong-cli service dashboard --help`；`schema module dashboard` |
+| 仪表盘 | [仪表盘技能](../../lingtong-dashboard/SKILL.md) | `lingtong-cli service dashboard --help`；`schema module dashboard` |
 | 连接器、模型等业务取数 | 按需求使用对应业务 Skill | `lingtong-cli schema search '关键词'` |
 | 没有专用命令的接口 | [service Skill](../../lingtong-service/SKILL.md) | `lingtong-cli service <模块> <操作> --help` |
 

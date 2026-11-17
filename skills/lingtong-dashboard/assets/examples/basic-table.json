@@ -1,0 +1,43 @@
+{
+  "appId": 942,
+  "name": "示例：基础表格",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "basicTable",
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 12,
+        "minW": 4,
+        "minH": 5
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "basicTable",
+        "title": "订单明细",
+        "type": "view",
+        "displayType": "basicTable",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "allowAddData": false,
+          "allowEditData": false,
+          "allowEditSchema": false
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false
+        }
+      }
+    ]
+  }
+}

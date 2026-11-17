@@ -20,7 +20,7 @@ lingtong-cli skills status                          # 查看已安装位置
 lingtong-cli skills uninstall --editor cursor       # 卸载
 ```
 
-支持编辑器：Claude Code、OpenCode、Qoder、Cursor、Trae、Codex。安装是**幂等**的——
+支持编辑器：Claude Code、OpenCode、Qoder、Cursor、Trae、Codex。通过 `--editor` 选择目标 Agent/编辑器；各 Agent 使用同一份完整技能（含 references、assets、scripts），安装目录和指引文件按所选编辑器适配。安装是**幂等**的——
 `AGENTS.md` / `CLAUDE.md` 中的内容写在受管标记块内，重复安装只替换该块，不破坏既有内容。
 
 ## 配置初始化

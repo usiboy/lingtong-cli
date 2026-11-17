@@ -39,8 +39,11 @@ type Editor struct {
 	// (e.g. <home>/.claude).
 	globalBase func(home string) string
 	// skillsSubdir is appended to the base to hold skills (e.g. "skills").
-	// "" means the editor has no skills directory (Codex).
+	// "" uses rootSkillsSubdir instead, or disables skill installation.
 	skillsSubdir string
+	// rootSkillsSubdir holds skills under the project/home root independently
+	// of the editor config directory (Codex uses .agents/skills).
+	rootSkillsSubdir string
 	// instructionsName is the agent instructions file the editor reads
 	// (AGENTS.md or CLAUDE.md). "" means none.
 	instructionsName string
@@ -107,7 +110,7 @@ var registry = []*Editor{
 		ID: "codex", Name: "Codex",
 		projectBase:      "", // project root
 		globalBase:       func(home string) string { return filepath.Join(home, ".codex") },
-		skillsSubdir:     "", // no skills directory; AGENTS.md only
+		rootSkillsSubdir: filepath.Join(".agents", "skills"),
 		instructionsName: fileAGENTS,
 	},
 }
@@ -186,6 +189,8 @@ func (e *Editor) Resolve(scope Scope, cwd, home string) Target {
 
 	if e.skillsSubdir != "" {
 		t.SkillsDir = filepath.Join(base, e.skillsSubdir)
+	} else if e.rootSkillsSubdir != "" {
+		t.SkillsDir = filepath.Join(root, e.rootSkillsSubdir)
 	}
 	if e.instructionsName != "" {
 		if e.instructionsAtRoot {

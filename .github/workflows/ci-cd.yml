@@ -104,6 +104,9 @@ jobs:
       - name: Test npm wrapper
         run: npm run test:npm
 
+      - name: Test dashboard skill
+        run: make test-dashboard-skill
+
       - name: Validate npm package contents
         run: |
           : > checksums.txt

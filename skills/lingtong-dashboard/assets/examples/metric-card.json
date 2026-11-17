@@ -1,0 +1,82 @@
+{
+  "appId": 942,
+  "name": "示例：单指标销售额",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "metric_sales",
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 5,
+        "minW": 4,
+        "minH": 5
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "metric_sales",
+        "title": "销售额",
+        "type": "chart",
+        "displayType": "metricCard",
+        "dataConfig": {
+          "multiMetricEnabled": false,
+          "sources": [
+            {
+              "id": "metric_sales_source",
+              "tableId": 1001,
+              "tableFilters": [],
+              "aggregation": {
+                "type": "sum",
+                "field": "data2001.2",
+                "alias": "销售额"
+              },
+              "compareConfig": {
+                "enabled": false,
+                "dateField": "data2001.3",
+                "timeRangeType": "thisMonthToDate",
+                "amount": null,
+                "customRange": null,
+                "label": "月同比",
+                "compareType": "month",
+                "resultType": "rate"
+              },
+              "styleConfig": {
+                "description": "示例指标，请替换真实数据源",
+                "showPresetDateRange": false,
+                "backgroundColor": "#ffffff",
+                "textColor": "#1f2937",
+                "backgroundOpacity": 100,
+                "textOpacity": 100,
+                "backgroundBlur": 0,
+                "fontSizeMode": "auto",
+                "labelFontSize": 13,
+                "valueFontSize": 30,
+                "compareLabelFontSize": 12,
+                "compareValueFontSize": 12,
+                "precision": 2,
+                "numberFormat": "numberThousands",
+                "unit": "",
+                "thousandSeparator": true
+              }
+            }
+          ],
+          "multiMetricConfig": {
+            "displayMode": "number",
+            "sortOrder": "sequence",
+            "align": "left",
+            "percentage": {
+              "mode": "none",
+              "denominatorSourceId": null
+            },
+            "chartFormat": {
+              "precision": 2,
+              "numberFormat": "numberThousands"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

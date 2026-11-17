@@ -20,16 +20,8 @@
 以下 ID 仅为参数示例，执行时替换为用户指定或查询确认的目标。
 
 ```bash
-# 上下文中没有 appId 时查询绑定应用
-lingtong-cli api GET /application/km/multi-table/id
-lingtong-cli api GET /app/resource/list --params '{"appId":942}'
-
-# 新建页面；已有 pageId 时跳过
+# 新建页面；已有 pageId 时按页面流程直接更新
 lingtong-cli api POST /page/create --data '{"appId":942,"name":"订单概览","parentFolderId":null,"icon":"i-page"}'
-
-# 查询已有页面及草稿
-lingtong-cli api GET /page/get --params '{"id":123}'
-lingtong-cli api GET /page/draft/source --params '{"pageId":123}'
 ```
 
 创建参数：
@@ -41,21 +33,11 @@ lingtong-cli api GET /page/draft/source --params '{"pageId":123}'
 | `parentFolderId` | integer / null | 根目录传 `null`；指定文件夹时传其 ID |
 | `icon` | string | 资源图标 ID，默认传 `i-page` |
 
-创建成功的关键返回结构：
+创建回执示例：`result.id` 为 `pageId`，`draftVersionNo: 0` 表示尚无已保存的草稿。
 
 ```json
-{
-  "success": true,
-  "result": {
-    "id": 123,
-    "appId": 942,
-    "name": "订单概览",
-    "draftVersionNo": 0
-  }
-}
+{"success":true,"result":{"id":123,"appId":942,"name":"订单概览","draftVersionNo":0}}
 ```
-
-后续回传使用 `result.id` 作为 `pageId`。`draftVersionNo: 0` 表示尚无已保存的草稿。
 
 ## 保存草稿
 
@@ -65,7 +47,7 @@ lingtong-cli api GET /page/draft/source --params '{"pageId":123}'
 | `baseVersionNo` | integer | 必填，首次保存传 `0`；更新时传**编辑开始时读取的 `result.versionNo`**，不是 `versionId` |
 | `htmlContent` | string | 必填，完整 UTF-8 单文件 HTML，JS、CSS 内联 |
 
-下面的示例从本地文件读取 HTML，用 JSON 序列化和参数数组调用 CLI。三个参数分别是文件路径、pageId、编辑基准版本；执行会实际保存草稿。
+下面的示例从本地文件读取 HTML，用 JSON 序列化和参数数组调用 CLI。三个参数分别是文件路径、pageId、编辑基准版本；执行会实际保存草稿，再回读核对页面、版本和完整代码，全部一致后才报告成功。
 
 ```bash
 python3 - ./page.html 123 0 <<'PY'
@@ -82,26 +64,47 @@ if page_id <= 0 or base_version_no < 0:
 html = html_path.read_text(encoding='utf-8')
 if html_path.suffix.lower() != '.html' or not html.strip():
     raise SystemExit('需要非空 UTF-8 HTML 文件')
-body = {'pageId': page_id, 'baseVersionNo': base_version_no, 'htmlContent': html}
-command = [
-    'lingtong-cli', 'api', 'POST', '/page/draft/save',
-    '--data', json.dumps(body, ensure_ascii=False), '--format', 'json', '--envelope'
-]
-# 使用命名环境/身份时，在 command 中追加与读取阶段相同的 --profile、--auth。
-completed = subprocess.run(command, check=True, capture_output=True, text=True)
-envelope = json.loads(completed.stdout)
-if envelope.get('ok') is not True:
-    raise SystemExit('CLI 未确认成功，请查询草稿确认结果，不要直接重发')
-response = envelope.get('data') or {}
-if response.get('success') is not True:
-    raise SystemExit('草稿保存失败：' + str(response.get('msg') or response.get('message') or '业务响应未成功'))
-result = response.get('result') or {}
-if str(result.get('pageId')) != str(page_id) or not isinstance(result.get('versionNo'), int):
-    raise SystemExit('保存回执不完整或页面不匹配，请查询草稿确认结果，不要直接重发')
+# 使用命名环境/身份时，在公共参数中追加与编辑前读取相同的 --profile、--auth。
+# 保存和回读共用这些参数，不能切换环境或身份。
+common_args = ['--format', 'json', '--envelope']
+
+def call(method, path, flag, payload):
+    command = ['lingtong-cli', 'api', method, path, flag,
+               json.dumps(payload, ensure_ascii=False)] + common_args
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True)
+    except (OSError, subprocess.SubprocessError):
+        raise SystemExit('CLI 调用未确认完成；请查询草稿确认结果，不要直接重发')
+    try:
+        envelope = json.loads(completed.stdout)
+    except ValueError:
+        raise SystemExit('响应无法解析；请查询草稿确认结果，不要直接重发')
+    if completed.returncode or not isinstance(envelope, dict) or envelope.get('ok') is not True:
+        raise SystemExit('CLI 未确认成功；请查询草稿确认结果，不要直接重发')
+    response = envelope.get('data')
+    if not isinstance(response, dict):
+        raise SystemExit('响应结构异常；请查询草稿确认结果，不要直接重发')
+    if response.get('success') is not True:
+        raise SystemExit('草稿业务失败：' + str(response.get('msg') or response.get('message') or '业务未确认成功')
+                         + '；请查询草稿确认结果，不要直接重发')
+    return response.get('result')
+
+saved = call('POST', '/page/draft/save', '--data', {
+    'pageId': page_id, 'baseVersionNo': base_version_no, 'htmlContent': html,
+})
+if (not isinstance(saved, dict) or str(saved.get('pageId')) != str(page_id)
+        or type(saved.get('versionNo')) is not int
+        or saved['versionNo'] <= base_version_no):
+    raise SystemExit('保存回执的页面或版本不符；先查询草稿，不要直接重发')
+current = call('GET', '/page/draft/source', '--params', {'pageId': page_id})
+if (not isinstance(current, dict) or str(current.get('pageId')) != str(page_id)
+        or type(current.get('versionNo')) is not int
+        or current['versionNo'] != saved['versionNo'] or current.get('htmlContent') != html):
+    raise SystemExit('回读内容或版本不一致；需核对并发修改，不要自动覆盖')
 print(json.dumps({
-    'status': 'draft_saved', 'pageId': result['pageId'],
-    'versionId': result.get('versionId'), 'versionNo': result['versionNo'],
-    'version': result.get('version')
+    'status': 'draft_saved', 'pageId': saved['pageId'],
+    'versionId': saved.get('versionId'), 'versionNo': saved['versionNo'],
+    'version': saved.get('version')
 }, ensure_ascii=False))
 PY
 ```
@@ -124,9 +127,9 @@ PY
 }
 ```
 
-每次成功保存生成新版本。检查业务成功及返回的 `pageId`、`versionNo`，再通过 `/page/draft/source` 回读确认版本和完整内容。
+每次成功保存生成新版本。保存回执的 `pageId` 必须匹配目标，`versionNo` 必须为整数（不接受布尔值）且大于编辑基准版本；再通过 `/page/draft/source` 回读，确认页面相同、版本与保存回执相同、完整 HTML 与提交内容一致。回读失败或不一致时停止并核对状态，不报告成功、不自动重发保存，也不自动覆盖并发修改。
 
-创建成功后保留 `pageId`，后续保存失败不重复创建。版本冲突先读取并合并最新草稿；超时或结果不明确时先查询确认。最终报告页面 ID、草稿版本和保存结果；保存草稿不等于发布。
+创建、更新及结果汇报见 [页面流程](custom-page.md)；版本冲突处理见 [更新已有页面](custom-page.md#更新已有页面)。
 
 ## 页面管理与发布
 
@@ -138,10 +141,12 @@ PY
 | 发布历史 | `GET /page/publish/history` | query：`pageId`、`pageNum`、`pageSize` | `result.data`、`result.total` |
 | 草稿 HTML | `GET /page/draft/html` | query：`pageId` | 完整 HTML，由平台加载 |
 
-发布仅在用户明确要求时执行；先查询页面，核对所确认的草稿版本，再以该 `versionNo` 发布，不能悄悄改用新的草稿。发布结果不改变默认的草稿展示流程。删除页面不等同于清空草稿。
+发布仅在用户明确要求时执行；先查询页面，核对所确认的草稿版本，再以该 `versionNo` 发布，不能悄悄改用新的草稿。发布后回读页面元数据和发布历史确认版本。在宿主中完成发布后，预览切换到最新发布版本；其他展示与权限规则见 [草稿预览与发布展示](custom-page.md#草稿预览与发布展示)。删除页面不等同于清空草稿。
 
 ```bash
 # 仅在用户已明确要求发布对应版本时执行
 lingtong-cli api POST /page/publish --data '{"pageId":123,"versionNo":1}' --envelope
 lingtong-cli api GET /page/publish/history --params '{"pageId":123,"pageNum":1,"pageSize":10}' --envelope
 ```
+
+草稿 HTML 的实际浏览器路径为 `/admin/ltapp/page/draft/html?pageId=...`；发布 HTML 为 `/admin/ltapp/page/published/html?pageId=...`，可选 `versionId` 用于指定历史发布版本。路径按当前部署添加基础前缀，由宿主携带浏览器登录态加载，不使用 CLI 的 JSON 信封解析 HTML 响应。分享入口使用最新发布版本。

@@ -1,0 +1,42 @@
+{
+  "appId": 942,
+  "name": "示例：透视表绑定第一步",
+  "config": {
+    "globalFilterList": [],
+    "layoutList": [
+      {
+        "i": "pivotTable",
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 12,
+        "minW": 4,
+        "minH": 5
+      }
+    ],
+    "tableConfigList": [
+      {
+        "id": "pivotTable",
+        "title": "店铺渠道透视",
+        "type": "view",
+        "displayType": "pivotTable",
+        "tableId": 1001,
+        "tableFilters": [],
+        "dataConfig": {
+          "measures": [],
+          "dimensions": [],
+          "allowFilter": false,
+          "allowExport": false
+        },
+        "styleConfig": {
+          "legendPosition": "top",
+          "toolTip": true,
+          "showValueOnChart": true,
+          "colorTheme": "default",
+          "showXAxis": true,
+          "isRing": false
+        }
+      }
+    ]
+  }
+}

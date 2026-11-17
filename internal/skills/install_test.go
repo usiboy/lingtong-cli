@@ -302,3 +302,58 @@ func TestFirstSentence(t *testing.T) {
 		}
 	}
 }
+
+func TestCodex_UpgradeDryRunStatusAndUninstall(t *testing.T) {
+	withFakeFS(t, fakeSkills())
+	cwd, home := newProjectHome(t)
+	instructions := filepath.Join(cwd, "AGENTS.md")
+	if err := os.WriteFile(instructions, []byte("# Existing project rules\nkeep me\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opts := Options{Editors: []string{"codex"}, CWD: cwd, Home: home, DryRun: true}
+	res, err := Install(opts)
+	if err != nil || targetFor(res, "codex", ScopeProject) == nil {
+		t.Fatalf("dry run: %v, %+v", err, res)
+	}
+	skillDir := filepath.Join(cwd, ".agents", "skills")
+	if _, err := os.Stat(skillDir); !os.IsNotExist(err) {
+		t.Fatal("dry run wrote skills")
+	}
+	opts.DryRun = false
+	for i := 0; i < 2; i++ {
+		res, err = Install(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tr := targetFor(res, "codex", ScopeProject)
+		if tr == nil || tr.Err != nil || tr.SkillsInstalled != 2 {
+			t.Fatalf("upgrade: %+v", tr)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(skillDir, "lingtong-scene", "references", "notes.md")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(instructions)
+	if err != nil || !strings.Contains(string(data), "keep me") || strings.Count(string(data), blockBegin) != 1 {
+		t.Fatalf("instructions: %v, %s", err, data)
+	}
+	res, err = Status(opts)
+	if err != nil || targetFor(res, "codex", ScopeProject).SkillsInstalled != 2 {
+		t.Fatalf("status: %v, %+v", err, res)
+	}
+	unrelated := filepath.Join(skillDir, "personal-skill")
+	if err := os.MkdirAll(unrelated, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res, err = Uninstall(opts)
+	if err != nil || targetFor(res, "codex", ScopeProject).Removed != 2 {
+		t.Fatalf("uninstall: %v, %+v", err, res)
+	}
+	if _, err := os.Stat(unrelated); err != nil {
+		t.Fatal("uninstall removed unrelated skill")
+	}
+	data, err = os.ReadFile(instructions)
+	if err != nil || !strings.Contains(string(data), "keep me") || strings.Contains(string(data), blockBegin) {
+		t.Fatalf("uninstall instructions: %v, %s", err, data)
+	}
+}

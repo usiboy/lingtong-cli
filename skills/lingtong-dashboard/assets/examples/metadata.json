@@ -1,0 +1,91 @@
+{
+  "tables": [
+    {
+      "id": 1001,
+      "schemaId": 2001,
+      "name": "示例订单表",
+      "columnsSchema": [
+        {
+          "id": 1,
+          "key": "data2001.1",
+          "title": "店铺",
+          "type": "text"
+        },
+        {
+          "id": 2,
+          "key": "data2001.2",
+          "title": "销售额",
+          "type": "number"
+        },
+        {
+          "id": 3,
+          "key": "data2001.3",
+          "title": "成交日期",
+          "type": "date"
+        },
+        {
+          "id": 4,
+          "key": "data2001.4",
+          "title": "渠道",
+          "type": "select"
+        },
+        {
+          "id": 5,
+          "key": "data2001.5",
+          "title": "地区",
+          "type": "text"
+        },
+        {
+          "id": 6,
+          "key": "data2001.6",
+          "title": "数量",
+          "type": "integer"
+        },
+        {
+          "id": 7,
+          "key": "data2001.7",
+          "title": "标签集合",
+          "type": "multiSelect"
+        },
+        {
+          "id": 8,
+          "key": "data2001.8",
+          "title": "销售额公式",
+          "type": "function",
+          "functionFieldType": "number"
+        },
+        {
+          "id": 9,
+          "key": "data2001.9",
+          "title": "创建时间",
+          "type": "createDate"
+        }
+      ]
+    },
+    {
+      "id": 1002,
+      "schemaId": 2002,
+      "name": "示例目标表",
+      "columnsSchema": [
+        {
+          "id": 1,
+          "key": "data2002.1",
+          "title": "月度目标",
+          "type": "number"
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "id": 8001,
+      "tableId": 1001,
+      "type": "basic"
+    },
+    {
+      "id": 8002,
+      "tableId": 1001,
+      "type": "pivot"
+    }
+  ]
+}

@@ -1,179 +1,50 @@
-# 通用连接器调用模式
+# 连接器接口调用
 
-本文档说明如何通过 CLI 命令调用连接器接口，无需手动编辑工作流。
+单独调用连接器方法使用 `lingtong-cli connector invoke`。CLI 通过通用代理调用新接口，不创建或执行工作流。
 
-## 概述
-
-`lingtong-cli connector invoke` 命令自动创建和管理一个通用工作流，实现任意连接器接口的调用。
-
-## 工作原理
-
-```
-CLI 命令 → 通用工作流 (Start → Script → End) → Open API → 连接器接口
-```
-
-- **单一工作流复用**: 每个环境（test/prod）只创建一个工作流
-- **参数外部化**: 所有参数通过 Start 节点传入
-- **自动缓存**: 首次调用自动创建，后续复用
-
-## 命令格式
+## 调用方式
 
 ```bash
-lingtong-cli connector invoke \
-  --connector <connector_name> \
-  --method <method_name> \
-  --auth-account <account_name> \
-  [--env test|prod] \
-  [--body '<json>'] \
-  [--force]
-```
-
-## 参数说明
-
-| 参数 | 必需 | 说明 |
-|------|------|------|
-| `--connector` | 是 | 连接器名称（如 `kmerp`） |
-| `--method` | 是 | 方法名（如 `erp.warehouse.list.query`） |
-| `--auth-account` | 是 | 认证账户名称 |
-| `--env` | 否 | 环境，默认 `prod` |
-| `--body` | 否 | 请求参数 JSON |
-| `--force` | 否 | 强制重建工作流 |
-
-## 使用示例
-
-### 基础调用
-
-```bash
-# 查询仓库列表
 lingtong-cli connector invoke \
   --connector kmerp \
-  --method "erp.warehouse.list.query" \
+  --method erp.warehouse.list.query \
   --auth-account "广州力人服饰" \
   --env test \
   --body '{}' \
   --format pretty
 ```
 
-### 带参数调用
+`--connector`、`--method` 必填；`--auth-account` 为账户名称，内置连接器可省略，服务端校验授权。`--env` 默认 `prod`；`--body` 默认 `{}`，必须为非 null 的 JSON 对象，传业务参数即可，无需手动包裹 `requestBody`。
 
-```bash
-# 分页查询
-lingtong-cli connector invoke \
-  --connector kmerp \
-  --method "erp.shop.list.query" \
-  --auth-account "广州力人服饰" \
-  --env test \
-  --body '{"pageNo":1,"pageSize":10}' \
-  --format pretty
-```
+CLI 向 `/gw/ai/proxy` 提交 `method: POST`、`path: /gw/connector/invoke`，代理转发至控制器 `/connector/invoke`（对应外部接口 `/ltapp/connector/invoke`）。请求字段为 `connector`、`method`、`env`、`authName`、`requestBody`，后两者分别来自 `--auth-account` 和 `--body`。
 
-### 查看接口参数
+## 查询参数与读取结果
 
-```bash
-# 查看接口定义
-lingtong-cli connector schema \
-  --connector kmerp \
-  --method "erp.warehouse.list.query" \
-  --auth-account-id 296 \
-  --format pretty
-```
+先用 `connector account list` 确认账户，用 `connector methods` 查询方法，用 `connector schema` 获取请求字段。详细命令见 [连接器技能](../../lingtong-connector/SKILL.md)。
 
-## 工作流结构
-
-通用工作流采用 Start → Script → End 三节点结构：
-
-### Start 节点
-
-定义 5 个输入参数：
+CLI 完整保留接口响应：
 
 ```json
 {
-  "id": "w_start_first",
-  "type": "w_start",
-  "data": {
-    "outputVariables": [
-      {"variable": "connector", "variableAttr": {"dataType": "text", "required": true}},
-      {"variable": "method", "variableAttr": {"dataType": "text", "required": true}},
-      {"variable": "authAccount", "variableAttr": {"dataType": "text", "required": true}},
-      {"variable": "body", "variableAttr": {"dataType": "json"}},
-      {"variable": "env", "variableAttr": {"dataType": "text", "required": true}}
-    ]
+  "success": true,
+  "result": {
+    "receiptStatus": "SUCCESS",
+    "responseBody": {"list": [], "total": 0}
   }
 }
 ```
 
-### Script 节点
+外层成功不代表业务成功，需检查 `result.receiptStatus` 和业务状态；从 `result.responseBody` 读取业务数据，支持对象或数组。CLI 不自动重试，执行结果未知时先核实。
 
-通过 `inputVariables` 引用上游参数：
+`--force` 仅保留为弃用的空操作。`connector cache list/clear` 仅管理旧本地缓存，不影响新调用，不删除平台历史工作流。
 
-```json
-{
-  "id": "w_script_invoke",
-  "type": "w_script",
-  "data": {
-    "inputVariables": [
-      {"variable": "connector", "variableAttr": {"value": "$w_start_first.connector"}},
-      {"variable": "method", "variableAttr": {"value": "$w_start_first.method"}},
-      {"variable": "authAccount", "variableAttr": {"value": "$w_start_first.authAccount"}},
-      {"variable": "body", "variableAttr": {"value": "$w_start_first.body"}},
-      {"variable": "env", "variableAttr": {"value": "$w_start_first.env"}}
-    ],
-    "scriptConfig": {
-      "script": "var connector = context.get('connector');\nvar method = context.get('method');\nvar authAccount = context.get('authAccount');\nvar body = context.get('body') || {};\nvar env = context.get('env');\ncontext.put('_env', env);\nvar result = AppInvoker.invoke(context, method, authAccount, body);\nreturn result;"
-    }
-  }
-}
-```
-
-### 关键配置
-
-1. **inputVariables**: 必须声明，引用 `$w_start_first.xxx`
-2. **context.put("_env", env)**: 调用 AppInvoker 前必须设置环境
-3. **参数直接传递**: Open API 请求体顶层传递参数，不用 `args` 包裹
-
-## 完整调用流程
-
-```bash
-# 1. 查看可用账户
-lingtong-cli connector account list --connector kmerp
-
-# 2. 查看可用方法
-lingtong-cli connector methods --connector kmerp --app-id 165 --auth-account-id 296
-
-# 3. 查看接口参数定义
-lingtong-cli connector schema --connector kmerp --method "erp.warehouse.list.query" --auth-account-id 296
-
-# 4. 调用接口
-lingtong-cli connector invoke \
-  --connector kmerp \
-  --method "erp.warehouse.list.query" \
-  --auth-account "广州力人服饰" \
-  --env test \
-  --body '{"pageSize":10}' \
-  --format pretty
-```
-
-## 缓存管理
-
-```bash
-# 查看缓存
-lingtong-cli connector cache list
-
-# 清除缓存
-lingtong-cli connector cache clear
-
-# 强制重建
-lingtong-cli connector invoke ... --force
-```
-
-## AppInvoker 请求/响应结构（易错点，已实测）
+## 工作流脚本中的 AppInvoker（与 CLI 响应结构不同）
 
 以快麦 ERP trade 类接口（`erp.trade.outstock.simple.query`、`erp.trade.list.query` 等）为例：
 
 1. **请求参数传【扁平】，不要手动包 `requestBody`**。`AppInvoker.invoke` 的 body 运行时会自动包裹进
    `requestBody`；若自己再包一层会变成 `requestBody.requestBody`（双重包裹）→ ERP 收到空参数 →
-   返回全 null（`TradeOutStockListQueryResponse(total=null,...)`）。在工作流脚本节点与 `connector invoke`
-   两种路径下都应传扁平参数：
+   返回全 null（`TradeOutStockListQueryResponse(total=null,...)`）。工作流脚本节点应传扁平参数；CLI 的 `--body` 同样传业务参数，由 CLI 构造接口请求：
    ```js
    // ✅ 正确：扁平
    var body = {timeType:'created', startTime: s, endTime: e, pageSize: 100, pageNo: 1};
@@ -201,20 +72,7 @@ lingtong-cli connector invoke ... --force
 > 排错顺序：先用 `connector invoke` 单点验证接口能否返回数据（与工作流隔离），再排查工作流编排。
 > 单节点级调试见 [testing-guide.md](testing-guide.md) 的「单节点调试 /workflow/debug/node/do」。
 
-## 常见问题
-
-| 问题 | 原因 | 解决方案 |
-|------|------|----------|
-| `context 信息不完整` | 未设置 `_env` | 脚本中添加 `context.put("_env", env)` |
-| `connector,不能为空` | 参数被 `args` 包裹 | Open API 参数放顶层 |
-| `args is not defined` | 脚本直接引用 `args` | 使用 `context.get("paramName")` |
-| Script 拿不到参数 | 缺少 `inputVariables` | 配置 `$w_start_first.xxx` 引用 |
-| 响应全 null（`total=null,list=null`） | 手动包了 `requestBody` 导致双重包裹，或 pageSize 过小 | 传扁平参数；pageSize 用 ≥20（建议 100） |
-| 读不到响应数据 | 误用 `result.result.list` | 用 `result.list` / `result.total`（响应即 responseData） |
-| 空数据导致整流程失败 | 连接器对空响应抛异常 | 查询脚本 `try/catch`，仅对 `total=null` 降级 |
-
 ## 相关文档
 
 - [脚本编写指南](script-guide.md)
-- [DSL 规范](dsl-specification.md)
 - [节点详解](node-details.md)

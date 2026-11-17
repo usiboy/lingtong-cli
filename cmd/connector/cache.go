@@ -123,8 +123,3 @@ func emptyCache() *ConnectorCache {
 		Legacy:    make(map[string]*ConnectorCacheEntry),
 	}
 }
-
-// universalCacheKey generates a cache key for universal workflow (by env only).
-func universalCacheKey(env string) string {
-	return env
-}

@@ -135,13 +135,16 @@ func TestResolve_Paths(t *testing.T) {
 
 	codex, _ := EditorByID("codex")
 	cp := codex.Resolve(ScopeProject, "/proj", "/home")
-	if cp.SkillsDir != "" {
-		t.Errorf("codex must have no skills dir, got %q", cp.SkillsDir)
+	if cp.SkillsDir != "/proj/.agents/skills" {
+		t.Errorf("codex project skills = %q", cp.SkillsDir)
 	}
 	if cp.InstructionsPath != "/proj/AGENTS.md" {
 		t.Errorf("codex project instructions = %q", cp.InstructionsPath)
 	}
 	cg := codex.Resolve(ScopeGlobal, "/proj", "/home")
+	if cg.SkillsDir != "/home/.agents/skills" {
+		t.Errorf("codex global skills = %q", cg.SkillsDir)
+	}
 	if cg.InstructionsPath != "/home/.codex/AGENTS.md" {
 		t.Errorf("codex global instructions = %q", cg.InstructionsPath)
 	}

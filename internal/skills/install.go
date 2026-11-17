@@ -208,8 +208,11 @@ func detected(t Target) bool {
 	if t.Editor.skillsSubdir != "" {
 		return dirExists(t.base)
 	}
-	// Codex has no skills dir: detect by its config dir (global) or the
-	// project-root AGENTS.md it reads (project).
+	// Codex keeps skills in .agents/skills. Also recognize its existing config
+	// or instructions so an instructions-only installation can be upgraded.
+	if t.SkillsDir != "" && dirExists(t.SkillsDir) {
+		return true
+	}
 	if t.Scope == ScopeGlobal {
 		return dirExists(t.base)
 	}
