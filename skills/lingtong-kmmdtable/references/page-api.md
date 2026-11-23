@@ -45,7 +45,7 @@ lingtong-cli api POST /page/create --data '{"appId":942,"name":"订单概览","p
 | --- | --- | --- |
 | `pageId` | integer | 必填，创建响应的 `result.id` 或用户提供的已有页面 ID |
 | `baseVersionNo` | integer | 必填，首次保存传 `0`；更新时传**编辑开始时读取的 `result.versionNo`**，不是 `versionId` |
-| `htmlContent` | string | 必填，完整 UTF-8 单文件 HTML，JS、CSS 内联 |
+| `htmlContent` | string | 必填，完整 UTF-8 单文件 HTML，页面自身 JS、CSS 内联。需要选择 ERP 商品且采用 SDK 时，可引用 [指定的 OSS JS](page-sdk.md) |
 
 下面的示例从本地文件读取 HTML，用 JSON 序列化和参数数组调用 CLI。三个参数分别是文件路径、pageId、编辑基准版本；执行会实际保存草稿，再回读核对页面、版本和完整代码，全部一致后才报告成功。
 
