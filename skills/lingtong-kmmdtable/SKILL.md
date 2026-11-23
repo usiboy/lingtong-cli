@@ -1,6 +1,6 @@
 ---
 name: lingtong-kmmdtable
-description: "通过 lingtong-cli 操作快麦多维表格（/kmMDTable）的模块入口。用于组织应用资源与嵌套文件夹、管理仪表盘、自定义页面开发与草稿回传、角色和资源权限；涉及表格数据、视图或透视表时复用对应 Skill。单纯操作表格记录时优先使用表格 Skill。"
+description: "通过 lingtong-cli 操作快麦多维表格（/kmMDTable）的模块入口。用于组织应用资源与嵌套文件夹、管理仪表盘、自定义页面开发与草稿回传（含 ERP 商品选择 SDK）、角色和资源权限；涉及表格数据、视图或透视表时复用对应 Skill。单纯操作表格记录时优先使用表格 Skill。"
 ---
 
 # 快麦多维表格
@@ -29,6 +29,7 @@ lingtong-cli api GET /app/resource/list --params '{"appId":942}' --envelope
 | 透视表的维度、度量、聚合及显示配置 | [lingtong-pivot-table](../lingtong-pivot-table/SKILL.md) |
 | 仪表盘组件、数据源和布局 | [lingtong-dashboard](../lingtong-dashboard/SKILL.md) |
 | 新建页面或为已有 pageId 开发内容 | [自定义页面开发](references/custom-page.md) |
+| 自定义页面需要选择快麦 ERP 商品时接入 SDK、保存回显或联调 | [页面组件 SDK](references/page-sdk.md) |
 | 页面管理、草稿回传、发布及历史 | [页面接口与回传](references/page-api.md) |
 | 角色、成员、功能权限与资源访问权限 | [角色与资源权限](references/permissions.md) |
 | 接口参数从哪里查询、使用哪种调用方式 | [接口索引](references/api-catalog.md) |
